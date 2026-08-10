@@ -43,14 +43,24 @@ It's buildable because the pieces exist as open infrastructure:
 
 ## Plan
 
-**Phase 0 (now — this skeleton):** app shell, map, route search UI. No real
-routing yet.
+**Phase 0 (done):** app shell, map, route search UI.
 
-**Phase 1 (next):** wire up [OpenRouteService](https://openrouteservice.org/)'s
-free public API for real point-to-point routing, so the whole app works
-end-to-end before any infrastructure gets built. ORS also has some
-elevation/avoid-features options that can approximate "scenic" as a
-starting point.
+**Phase 1 (done):** real point-to-point routing, end-to-end, with no API key
+or signup required — [Nominatim](https://nominatim.org/) for geocoding and
+the [OSRM](https://project-osrm.org/) demo server for directions, both
+proxied through this app's own API routes (keeps us off CORS and lets us set
+the User-Agent Nominatim's usage policy asks for).
+
+Caveats worth knowing, since they're what Phase 2 exists to fix:
+
+- The OSRM demo server has no uptime guarantee and only optimizes for speed.
+- The "scenic" toggle is a **placeholder**. OSRM only ranks by travel time,
+  so scenic currently just picks its second alternative, which is usually
+  barely different. The UI says so rather than pretending otherwise.
+- Geocoding is restricted to an Arizona bounding box, so an out-of-state
+  search can fuzzy-match something odd inside the state ("Boston, MA" finds
+  "Boston Tank, Mohave County"). The app shows what it actually matched so
+  that's visible rather than silently wrong.
 
 **Phase 2:** self-host Valhalla on an Arizona OSM extract, with a
 precomputed scenic score per road segment (proximity to Scenic Byways,
@@ -70,8 +80,10 @@ corridor, and let the user insert one as a waypoint.
   key, no rate limit) — may move to a self-hosted
   [Protomaps](https://protomaps.com/)/PMTiles Arizona-only extract later for
   full control
-- Routing: none yet (Phase 0) → OpenRouteService (Phase 1) → self-hosted
-  Valhalla (Phase 2)
+- Geocoding: [Nominatim](https://nominatim.org/) (free, no key), proxied via
+  `/api/geocode`
+- Routing: [OSRM](https://project-osrm.org/) demo server (free, no key),
+  proxied via `/api/directions` → self-hosted Valhalla in Phase 2
 
 ## Getting started
 
@@ -84,5 +96,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Status
 
-Skeleton only. The route search form in the UI doesn't call anything real
-yet — see Phase 1 above.
+Working end-to-end for real point-to-point routing: enter two Arizona
+places, get an actual driving route drawn on the map with distance and
+time. The scenic option is still a placeholder — that's Phase 2, and it's
+the part that makes this project worth building.
