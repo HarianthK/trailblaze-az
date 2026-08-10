@@ -2,6 +2,11 @@ import type { Coords, RouteResult } from "@/lib/types"
 
 const OSRM_URL = "https://router.project-osrm.org/route/v1/driving"
 
+// OSRM's policy requires a User-Agent identifying the application, and blocks
+// "excessive use" — caching identical routes is the cheapest way to stay light.
+const USER_AGENT = "trailblaze-az (https://github.com/HarianthK)"
+const CACHE_SECONDS = 86400
+
 /** Parses "lng,lat" and rejects anything that isn't two finite numbers. */
 function parseCoords(raw: string | null): Coords | null {
   if (!raw) return null
@@ -40,7 +45,10 @@ export async function GET(request: Request) {
 
   let upstream: Response
   try {
-    upstream = await fetch(url)
+    upstream = await fetch(url, {
+      headers: { "User-Agent": USER_AGENT },
+      next: { revalidate: CACHE_SECONDS },
+    })
   } catch {
     return Response.json({ error: "Could not reach the routing service." }, { status: 502 })
   }
@@ -68,5 +76,12 @@ export async function GET(request: Request) {
     durationSeconds: route.duration,
   }))
 
-  return Response.json({ routes })
+  return Response.json(
+    { routes },
+    {
+      headers: {
+        "Cache-Control": `public, s-maxage=${CACHE_SECONDS}, stale-while-revalidate=604800`,
+      },
+    },
+  )
 }

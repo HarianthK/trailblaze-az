@@ -6,11 +6,12 @@ const NOMINATIM_URL = "https://nominatim.openstreetmap.org/search"
 // Paired with bounded=1 so "Tempe" can't resolve to a Tempe somewhere else.
 const ARIZONA_VIEWBOX = "-114.82,37.00,-109.04,31.33"
 
-/**
- * Proxied server-side rather than called straight from the browser for two
- * reasons: Nominatim's usage policy wants an identifying User-Agent (which a
- * browser won't let us set), and going through our own origin sidesteps CORS.
- */
+// Nominatim's policy requires caching and warns that repeated identical
+// queries may get you blocked. Place names barely change; a week is safe.
+const CACHE_SECONDS = 604800
+
+// Proxied server-side so we can set the User-Agent the policy asks for, which
+// a browser won't allow, and to sidestep CORS. See DOCS/README.
 export async function GET(request: Request) {
   const query = new URL(request.url).searchParams.get("q")?.trim()
 
@@ -30,6 +31,7 @@ export async function GET(request: Request) {
   try {
     upstream = await fetch(url, {
       headers: { "User-Agent": "trailblaze-az (https://github.com/HarianthK)" },
+      next: { revalidate: CACHE_SECONDS },
     })
   } catch {
     return Response.json({ error: "Could not reach the geocoding service." }, { status: 502 })
@@ -55,5 +57,9 @@ export async function GET(request: Request) {
     coords: [Number(first.lon), Number(first.lat)],
   }
 
-  return Response.json(result)
+  return Response.json(result, {
+    headers: {
+      "Cache-Control": `public, s-maxage=${CACHE_SECONDS}, stale-while-revalidate=2592000`,
+    },
+  })
 }

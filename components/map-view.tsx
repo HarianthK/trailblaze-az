@@ -49,6 +49,18 @@ export function MapView({ route }: { route: RouteResult | null }) {
     })
 
     map.addControl(new maplibregl.NavigationControl(), "top-right")
+
+    // The style credits OSM for the tiles; routing is a separate service with
+    // its own attribution requirement under ODbL.
+    map.addControl(
+      new maplibregl.AttributionControl({
+        compact: true,
+        customAttribution:
+          'Routing by <a href="https://project-osrm.org/">OSRM</a> · Geocoding by <a href="https://nominatim.org/">Nominatim</a> · Data © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors (ODbL)',
+      }),
+      "bottom-right",
+    )
+
     mapRef.current = map
 
     map.on("load", () => {
