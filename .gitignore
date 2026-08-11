@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# pipeline build inputs — large and re-fetchable, unlike the artifacts in
+# pipeline/data, which are small and versioned on purpose
+/pipeline/extract/
