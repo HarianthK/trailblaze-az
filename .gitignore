@@ -47,3 +47,7 @@ next-env.d.ts
 # The attribute table is ~931k rows. Its summary stamp is committed instead:
 # a diff of a million CSV lines tells you nothing a distribution doesn't.
 /pipeline/data/attributes.csv.gz
+
+# python
+__pycache__/
+*.pyc

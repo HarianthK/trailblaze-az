@@ -72,7 +72,9 @@ def main():
         if not path.exists():
             raise SystemExit(f"missing input: {path} — run the earlier stages first")
 
-    meta = json.loads(GRID_META.read_text())
+    # Encoding is explicit throughout: Windows defaults these to cp1252, which
+    # chokes on the non-ASCII characters in OSM place names.
+    meta = json.loads(GRID_META.read_text(encoding="utf-8"))
     min_lat, min_lon = meta["bbox"][0], meta["bbox"][1]
     rows, cols, reach = meta["rows"], meta["cols"], meta["reachCells"]
     deg_lat = meta["cellMeters"] / 111_320
@@ -82,7 +84,7 @@ def main():
     park, water, wood = grids["park"], grids["water"], grids["wood"]
     print(f"  grid {rows} x {cols}, reach {reach} cells")
 
-    byway_ids = set(json.loads(BYWAYS.read_text())["wayIds"])
+    byway_ids = set(json.loads(BYWAYS.read_text(encoding="utf-8"))["wayIds"])
     print(f"  {len(byway_ids):,} byway way ids")
 
     started = time.time()
@@ -146,7 +148,7 @@ def main():
         "fields": FIELDS,
         "maxSamplesPerWay": MAX_SAMPLES,
         "grid": {"cellMeters": meta["cellMeters"], "reachCells": reach},
-    }, indent=2))
+    }, indent=2), encoding="utf-8")
 
 
 if __name__ == "__main__":

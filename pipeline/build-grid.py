@@ -222,7 +222,7 @@ def main():
             for name in LAYERS
         },
     }
-    STAMP.write_text(json.dumps(meta, indent=2))
+    STAMP.write_text(json.dumps(meta, indent=2), encoding="utf-8")
 
     print(f"  wrote {OUT} ({OUT.stat().st_size / 1e6:.1f} MB)")
     for name in LAYERS:
