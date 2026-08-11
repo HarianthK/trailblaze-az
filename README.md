@@ -62,14 +62,77 @@ Caveats worth knowing, since they're what Phase 2 exists to fix:
   "Boston Tank, Mohave County"). The app shows what it actually matched so
   that's visible rather than silently wrong.
 
-**Phase 2:** self-host Valhalla on an Arizona OSM extract, with a
-precomputed scenic score per road segment (proximity to Scenic Byways,
-parks, water, elevation change) feeding its custom costing model. This is
-the actual differentiator — everything before this phase is table stakes.
+**Phase 2 (in progress):** self-host Valhalla on an Arizona OSM extract,
+with a precomputed attribute table per road segment (proximity to Scenic
+Byways, parks, water, elevation change) feeding its custom costing model.
+This is the actual differentiator — everything before this phase is table
+stakes. See [Data pipeline](#data-pipeline) below.
 
 **Phase 3:** POI-aware routing — given a computed route, surface
 restaurants/hotels/gas stations within a small detour-time buffer of the
 corridor, and let the user insert one as a waypoint.
+
+## Data pipeline
+
+Offline tooling in `pipeline/`. It never ships with the app — it produces the
+data the routing engine is built from. Each stage is separately runnable and
+writes a stamped artifact, so a route can be traced back to the data behind it.
+
+| Stage | Command | Output |
+|---|---|---|
+| 1. Designated byways | `node pipeline/fetch-byways.mjs` | `pipeline/data/byways.json` |
+| 2. Arizona extract | `node pipeline/fetch-extract.mjs` | `pipeline/extract/*.osm.pbf` (gitignored) |
+
+**Artifacts are committed, inputs are not.** The JSON summaries in
+`pipeline/data/` are small and versioned on purpose, so a bad run shows up as a
+diff. The 287 MB extract is gitignored and re-fetchable; what's committed
+instead is its checksum.
+
+Stage 1 uses the [Overpass API](https://overpass-api.de/) rather than the
+extract, because the route relations that carry Arizona's official
+`US:AZ:Scenic` designation are awkward to reassemble from a PBF, and it's a
+list of 28 things. Everything else comes from the extract — parks, water and
+woodland are all in the same file as the roads, so querying a free shared
+server for them would be both wasteful and rude.
+
+### What's actually in the extract
+
+Measured by a full pass over the file (65s), and it's what stage 3 is sized for:
+
+| | Count |
+|---|---|
+| Ways, all kinds | 4,640,267 |
+| **Drivable ways** — the attribute table's row count | **931,043** |
+| …of those, carrying a `surface` tag | 353,827 (38%) |
+| Waterways / water bodies | 130,200 / 36,301 |
+| Woodland / forest | 112,909 / 1,094 |
+| Parks / protected areas / national parks | 7,179 / 276 / 30 |
+
+Two consequences worth recording. **Surface is tagged on only 38% of drivable
+roads**, so a future "avoid dirt" option has to infer from `highway=track` and
+friends rather than trust the tag — treating untagged as paved would route
+people onto dirt. And Arizona is *water-poor but wood-rich*: proximity to
+woodland will do more work in the scenic cost than water, which is the opposite
+of what the same model would look like in most states.
+
+### Toolchain notes
+
+- **Python** (`pip install osmium`) for the stages that read the extract.
+  Native osmium is an order of magnitude faster than parsing 287 MB in JS, and
+  it needs no container.
+- **Valhalla tiles are built on the server, not locally.** The tile build is
+  Linux-only and memory-hungry; running it through a VM on a laptop, when the
+  Oracle instance it will run on can build it directly, is the worst of both
+  worlds. This machine's job ends at producing the tagged PBF.
+- Overpass mirrors return `504` under load and sometimes `200` with an empty
+  body, so stage 1 tries three mirrors, backs off, and validates the result
+  rather than trusting the first success.
+- **The dev machine has ~1.2 GB of RAM free**, which is the binding constraint
+  on stage 3. Holding Arizona's node coordinates in memory to give road
+  segments their geometry is the standard approach and does not fit. Stage 3
+  therefore uses a disk-backed node index, rasterises the scenic features to a
+  coarse grid instead of doing a polygon join, and streams its output rows
+  rather than accumulating them.
 
 ## Stack
 
