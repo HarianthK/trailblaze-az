@@ -108,12 +108,22 @@ Measured by a full pass over the file (65s), and it's what stage 3 is sized for:
 | Woodland / forest | 112,909 / 1,094 |
 | Parks / protected areas / national parks | 7,179 / 276 / 30 |
 
-Two consequences worth recording. **Surface is tagged on only 38% of drivable
-roads**, so a future "avoid dirt" option has to infer from `highway=track` and
-friends rather than trust the tag — treating untagged as paved would route
-people onto dirt. And Arizona is *water-poor but wood-rich*: proximity to
-woodland will do more work in the scenic cost than water, which is the opposite
-of what the same model would look like in most states.
+Three consequences worth recording, all of them Arizona-specific.
+
+**Surface is tagged on only 38% of drivable roads**, so a future "avoid dirt"
+option has to infer from `highway=track` and friends rather than trust the tag
+— treating untagged as paved would route people onto dirt.
+
+**`waterway=stream` in Arizona is mostly dry washes.** They are sand for most
+of the year. Counting them as water put 11% of the state "inside" water and
+58% within 2 km of it, which is no signal at all — the state's real surface
+water is well under 1%. The grid now takes perennial rivers and actual water
+bodies only, and drops anything tagged `intermittent` or `seasonal`.
+
+**National forests are not tagged as woodland.** Coconino, Tonto and the rest
+carry `boundary=protected_area`, so a naive classifier files Arizona's trees
+under "parks" — which makes *prefer woodland* and *prefer parks* the same knob
+while reporting the state as 5.8% wooded, against a true figure near a quarter.
 
 ### Toolchain notes
 
@@ -127,6 +137,13 @@ of what the same model would look like in most states.
 - Overpass mirrors return `504` under load and sometimes `200` with an empty
   body, so stage 1 tries three mirrors, backs off, and validates the result
   rather than trusting the first success.
+- **Scanline fill is driven by edges, not by rows.** The obvious loop — walk
+  every scanline, test every edge — is O(rows x edges), which for a national
+  forest with ~50,000 edges spanning ~3,000 grid rows is 150 million operations
+  for a single shape. The first version of stage 3 took 6 h 38 m, nearly all of
+  it in a handful of such polygons. Having each edge emit only the crossings it
+  actually makes does the same shape in 0.03 s. This matters because the stage
+  has to be re-runnable whenever the scenic weights change.
 - **The dev machine has ~1.2 GB of RAM free**, which is the binding constraint
   on stage 3. Holding Arizona's node coordinates in memory to give road
   segments their geometry is the standard approach and does not fit. Stage 3

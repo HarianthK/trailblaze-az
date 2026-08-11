@@ -43,3 +43,7 @@ next-env.d.ts
 # pipeline build inputs — large and re-fetchable, unlike the artifacts in
 # pipeline/data, which are small and versioned on purpose
 /pipeline/extract/
+
+# The attribute table is ~931k rows. Its summary stamp is committed instead:
+# a diff of a million CSV lines tells you nothing a distribution doesn't.
+/pipeline/data/attributes.csv.gz
