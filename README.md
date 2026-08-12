@@ -33,10 +33,10 @@ It's buildable because the pieces exist as open infrastructure:
 - **[OpenStreetMap](https://www.openstreetmap.org/)** already has Arizona's
   official Scenic Byways tagged, plus parks/water/POI data — no data
   collection needed to start.
-- **[Valhalla](https://github.com/valhalla/valhalla)** (open-source routing
-  engine) supports fully custom costing models per edge — this is exactly
-  where "prefer scenic roads" becomes a real, tunable cost function instead
-  of a fake alternate-route hack.
+- **[OSRM](https://project-osrm.org/)** (open-source routing engine) lets a
+  Lua profile set a custom weight per road from any tag, separately from the
+  reported travel time — this is exactly where "prefer scenic roads" becomes a
+  real, tunable cost function instead of a fake alternate-route hack.
 - Self-hostable for free on **Oracle Cloud's Always Free tier** (not a
   trial — genuinely free forever), which is plenty of RAM for an
   Arizona-only OSM extract.
@@ -62,7 +62,7 @@ Caveats worth knowing, since they're what Phase 2 exists to fix:
   "Boston Tank, Mohave County"). The app shows what it actually matched so
   that's visible rather than silently wrong.
 
-**Phase 2 (in progress):** self-host Valhalla on an Arizona OSM extract,
+**Phase 2 (in progress):** self-host OSRM on an Arizona OSM extract,
 with a precomputed attribute table per road segment (proximity to Scenic
 Byways, parks, water, elevation change) feeding its custom costing model.
 This is the actual differentiator — everything before this phase is table
@@ -85,6 +85,46 @@ writes a stamped artifact, so a route can be traced back to the data behind it.
 | 3. Scenic grid | `python pipeline/build-grid.py` | `pipeline/data/scenic-grid.npz` |
 | 4. Attribute table | `python pipeline/build-attributes.py` | `pipeline/data/attributes.csv.gz` (gitignored) |
 | 5. Validation | `python pipeline/validate.py` | `pipeline/data/validation.json` |
+| 6. Tag the extract | `python pipeline/tag-pbf.py` | `pipeline/extract/arizona-scenic.osm.pbf` (gitignored) |
+
+### Routing engine: OSRM, not Valhalla
+
+The plan called for Valhalla. Research says that was the wrong pick for this
+job. Valhalla evaluates costing against edge attributes **baked into its tiles**
+and the tile schema is fixed — there is no field for a custom scenic score, and
+[no API for per-request per-edge penalties](https://github.com/valhalla/valhalla/issues/5699)
+(open, unanswered). Getting a scenic score in would mean hijacking an attribute
+that means something else.
+
+OSRM does this as a first-class feature. Its profiles set `result.weight` per
+way from any tag, and
+[its own docs give this exact use case](https://project-osrm.org/docs/v26.4.0/profiles)
+as the example — preferring a route through green areas even when it is longer.
+Crucially `weight` (what routing minimises) is separate from `duration` (the
+ETA), so the scenic route can be preferred *and* honestly reported as slower.
+It is also already the engine the app talks to, so `/api/directions` barely
+changes.
+
+[`routing/scenic.lua`](routing/scenic.lua) wraps the stock car profile rather
+than forking it, and multiplies the rate by `1 + score * 0.15`. That constant is
+the tuning knob — it trades detour length against scenery.
+
+Building the graph, after stage 6 (needs Docker and a few GB of free RAM —
+more than the dev laptop has, so this runs on the server):
+
+```bash
+cd pipeline/extract
+OSRM="docker run -t -v $PWD:/data -v $PWD/../../routing:/profile ghcr.io/project-osrm/osrm-backend"
+$OSRM osrm-extract -p /profile/scenic.lua /data/arizona-scenic.osm.pbf
+$OSRM osrm-partition /data/arizona-scenic.osrm
+$OSRM osrm-customize /data/arizona-scenic.osrm
+docker run -t -p 5000:5000 -v $PWD:/data ghcr.io/project-osrm/osrm-backend \
+  osrm-routed --algorithm mld /data/arizona-scenic.osrm
+```
+
+Run the same three steps with `-p /opt/car.lua` into a second directory to get
+the `fastest` engine. Two graphs, one scenic and one plain, is simpler than one
+graph trying to serve both.
 
 ### What the scenic signals are actually worth
 
@@ -156,7 +196,7 @@ while reporting the state as 5.8% wooded, against a true figure near a quarter.
 - **Python** (`pip install osmium`) for the stages that read the extract.
   Native osmium is an order of magnitude faster than parsing 287 MB in JS, and
   it needs no container.
-- **Valhalla tiles are built on the server, not locally.** The tile build is
+- **The routing graph is built on the server, not locally.** The build is
   Linux-only and memory-hungry; running it through a VM on a laptop, when the
   Oracle instance it will run on can build it directly, is the worst of both
   worlds. This machine's job ends at producing the tagged PBF.
@@ -189,7 +229,8 @@ while reporting the state as 5.8% wooded, against a true figure near a quarter.
 - Geocoding: [Nominatim](https://nominatim.org/) (free, no key), proxied via
   `/api/geocode`
 - Routing: [OSRM](https://project-osrm.org/) demo server (free, no key),
-  proxied via `/api/directions` → self-hosted Valhalla in Phase 2
+  proxied via `/api/directions` → self-hosted OSRM with a scenic profile in
+  Phase 2
 
 ## Getting started
 

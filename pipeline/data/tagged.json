@@ -1,0 +1,11 @@
+{
+  "stage": "tagged",
+  "generatedAt": "2026-08-12T18:56:16Z",
+  "tag": "scenic_score",
+  "waysTagged": 289449,
+  "weights": {
+    "wood": 0.7,
+    "wilderness": 0.3,
+    "bywayBonus": 3
+  }
+}
