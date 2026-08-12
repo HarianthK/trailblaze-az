@@ -1,0 +1,22 @@
+{
+  "stage": "attributes",
+  "generatedAt": "2026-08-12T00:05:17Z",
+  "rows": 931043,
+  "skippedNoGeometry": 0,
+  "fields": [
+    "way_id",
+    "highway",
+    "surface_class",
+    "byway",
+    "park_prox",
+    "wilderness_prox",
+    "water_prox",
+    "wood_prox",
+    "length_m"
+  ],
+  "maxSamplesPerWay": 24,
+  "grid": {
+    "cellMeters": 200,
+    "reachCells": 10
+  }
+}

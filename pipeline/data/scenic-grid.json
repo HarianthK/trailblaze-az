@@ -1,6 +1,6 @@
 {
   "stage": "scenic-grid",
-  "generatedAt": "2026-08-11T16:51:41Z",
+  "generatedAt": "2026-08-11T23:26:21Z",
   "bbox": [
     31.33,
     -114.82,
@@ -13,9 +13,14 @@
   "reachCells": 10,
   "layers": {
     "park": {
-      "features": 7420,
-      "cellsInside": 1243355,
-      "cellsWithinReach": 1817478
+      "features": 7174,
+      "cellsInside": 13745,
+      "cellsWithinReach": 185046
+    },
+    "wilderness": {
+      "features": 246,
+      "cellsInside": 1229800,
+      "cellsWithinReach": 1657077
     },
     "water": {
       "features": 13028,

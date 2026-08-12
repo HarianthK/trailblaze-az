@@ -1,0 +1,66 @@
+{
+  "checks": [
+    {
+      "check": "row count",
+      "pass": true,
+      "detail": "931,043 drivable ways"
+    },
+    {
+      "check": "columns present",
+      "pass": true,
+      "detail": "byway, highway, length_m, park_prox, surface_class, water_prox, way_id, wilderness_prox, wood_prox"
+    },
+    {
+      "check": "byways flagged",
+      "pass": true,
+      "detail": "896 rows on designated byways"
+    },
+    {
+      "check": "woodland separates byways from ordinary roads",
+      "pass": true,
+      "detail": "gap +4.20 cells (byways 4.23 vs 8.43)"
+    },
+    {
+      "check": "wilderness points the right way",
+      "pass": true,
+      "detail": "gap +0.61 cells"
+    },
+    {
+      "check": "municipal parks stay an urbanness proxy, not a scenic one",
+      "pass": true,
+      "detail": "gap -3.16 cells \u2014 must not be weighted as scenic"
+    },
+    {
+      "check": "Sedona \u2013 Oak Creek Canyon Scenic Road scores scenic",
+      "pass": true,
+      "detail": "wood 0.00 vs statewide 8.43 over 26 ways"
+    },
+    {
+      "check": "Red Rock Scenic Road scores scenic",
+      "pass": true,
+      "detail": "wood 0.00 vs statewide 8.43 over 22 ways"
+    },
+    {
+      "check": "Mingus Mountain Scenic Road scores scenic",
+      "pass": true,
+      "detail": "wood 0.24 vs statewide 8.43 over 23 ways"
+    },
+    {
+      "check": "San Francisco Peaks Scenic Road scores scenic",
+      "pass": true,
+      "detail": "wood 0.00 vs statewide 8.43 over 10 ways"
+    },
+    {
+      "check": "byways are near something",
+      "pass": true,
+      "detail": "151 of 896 byway ways are beyond reach of every layer"
+    }
+  ],
+  "gaps": {
+    "park": -3.1624068824221174,
+    "wilderness": 0.6114777699692322,
+    "water": -0.23099718751012688,
+    "wood": 4.198856817673327
+  },
+  "rows": 931043
+}

@@ -32,7 +32,7 @@ COLS = int((MAX_LON - MIN_LON) / DEG_LON) + 1
 # meaningfully affecting whether a drive is pleasant.
 REACH = 10
 
-LAYERS = ("park", "water", "wood")
+LAYERS = ("park", "wilderness", "water", "wood")
 
 
 def classify(tags):
@@ -45,7 +45,13 @@ def classify(tags):
     if tags.get("natural") == "wood" or tags.get("landuse") == "forest":
         return "wood"
 
-    if tags.get("leisure") == "park" or tags.get("boundary") in ("national_park", "protected_area"):
+    # Municipal parks and protected wilderness were one layer, and it measured
+    # how urban a road is rather than how scenic. City streets scored best on
+    # it and designated byways scored worst, so "prefer parks" would have
+    # steered scenic routes into Phoenix. They are separate signals.
+    if tags.get("boundary") in ("national_park", "protected_area"):
+        return "wilderness"
+    if tags.get("leisure") == "park":
         return "park"
 
     # Arizona tags thousands of dry desert washes as waterway=stream. They are

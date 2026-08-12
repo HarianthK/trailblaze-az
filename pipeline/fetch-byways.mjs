@@ -23,11 +23,12 @@ const QUERY = `[out:json][timeout:120];
 relation["type"="route"]["route"="road"](${AZ_BBOX});
 out tags;`
 
+// `out body` returns each relation with its member list, which keeps the ways
+// grouped by the byway they belong to. Asking for `way(r)` flattens that
+// grouping away, and without it no assertion can name a single road.
 const MEMBERS_QUERY = (ids) => `[out:json][timeout:180];
 relation(id:${ids.join(",")});
-out ids;
-way(r);
-out ids;`
+out body;`
 
 // Roads Arizona actually designates, plus byways tagged without the network.
 // "parkway" is deliberately not matched: Arizona's four designated parkways
@@ -128,22 +129,31 @@ async function main() {
   console.log(`  of which scenic: ${scenic.length}`)
 
   let wayIds = []
+  let membersByRelation = new Map()
   // Mirrors sometimes answer 200 with an empty set, so keep asking until one
   // gives a plausible answer rather than trusting the first success.
   for (let tries = 0; tries < 3 && wayIds.length < 500; tries++) {
     const members = await overpass(MEMBERS_QUERY(scenic.map((r) => r.id)), "member ways")
-    wayIds = (members.elements ?? []).filter((e) => e.type === "way").map((e) => e.id)
+    membersByRelation = new Map(
+      (members.elements ?? [])
+        .filter((e) => e.type === "relation")
+        .map((e) => [e.id, (e.members ?? []).filter((m) => m.type === "way").map((m) => m.ref)]),
+    )
+    wayIds = [...new Set([...membersByRelation.values()].flat())]
     if (wayIds.length < 500) console.log(`  member ways: got ${wayIds.length}, retrying`)
   }
 
-  const byways = scenic.map((r) => ({
-    relationId: r.id,
-    name: r.tags?.name ?? r.tags?.ref ?? "(unnamed)",
-    network: r.tags?.network ?? null,
-    ref: r.tags?.ref ?? null,
-    // Filled per-relation in a later stage; the flat set is what tagging needs.
-    wayCount: null,
-  }))
+  const byways = scenic.map((r) => {
+    const ways = membersByRelation.get(r.id) ?? []
+    return {
+      relationId: r.id,
+      name: r.tags?.name ?? r.tags?.ref ?? "(unnamed)",
+      network: r.tags?.network ?? null,
+      ref: r.tags?.ref ?? null,
+      wayCount: ways.length,
+      wayIds: ways,
+    }
+  })
 
   const artifact = {
     stage: "byways",

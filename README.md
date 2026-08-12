@@ -82,6 +82,32 @@ writes a stamped artifact, so a route can be traced back to the data behind it.
 |---|---|---|
 | 1. Designated byways | `node pipeline/fetch-byways.mjs` | `pipeline/data/byways.json` |
 | 2. Arizona extract | `node pipeline/fetch-extract.mjs` | `pipeline/extract/*.osm.pbf` (gitignored) |
+| 3. Scenic grid | `python pipeline/build-grid.py` | `pipeline/data/scenic-grid.npz` |
+| 4. Attribute table | `python pipeline/build-attributes.py` | `pipeline/data/attributes.csv.gz` (gitignored) |
+| 5. Validation | `python pipeline/validate.py` | `pipeline/data/validation.json` |
+
+### What the scenic signals are actually worth
+
+Stage 5 measures each signal against ground truth: roads Arizona has officially
+designated as scenic should score better than ordinary roads. Gap is in 200 m
+cells, positive meaning byways are closer.
+
+| Signal | Gap | Use |
+|---|---|---|
+| `wood_prox` | **+4.16** | The scenic signal. Weight it heavily. |
+| `wilderness_prox` | +0.62 | Real but weak. Modest weight. |
+| `water_prox` | −0.25 | No signal — Arizona has almost no surface water. |
+| `park_prox` | **−3.17** | **Not scenic.** Measures urbanness; see below. |
+
+`leisure=park` is municipal playing fields, so city streets score *best* on it
+and designated byways score *worst*. Weighted as a scenic positive it would
+steer scenic routes into Phoenix. It stays in the table because it is a genuine
+signal of something — just of the opposite thing — and stage 5 asserts its sign
+stays negative so a later change can't quietly adopt it as scenic.
+
+Sanity from the named assertions: Oak Creek Canyon, Red Rock and San Francisco
+Peaks all score `0.00` on woodland, meaning every sampled point along them sits
+inside forest, against a statewide mean of 8.43.
 
 **Artifacts are committed, inputs are not.** The JSON summaries in
 `pipeline/data/` are small and versioned on purpose, so a bad run shows up as a

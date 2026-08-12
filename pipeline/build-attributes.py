@@ -39,7 +39,7 @@ MAX_SAMPLES = 24
 
 FIELDS = [
     "way_id", "highway", "surface_class", "byway",
-    "park_prox", "water_prox", "wood_prox",
+    "park_prox", "wilderness_prox", "water_prox", "wood_prox",
     "length_m",
 ]
 
@@ -81,7 +81,8 @@ def main():
     deg_lon = meta["cellMeters"] / (111_320 * math.cos(math.radians((meta["bbox"][0] + meta["bbox"][2]) / 2)))
 
     grids = np.load(GRID)
-    park, water, wood = grids["park"], grids["water"], grids["wood"]
+    park, wilderness = grids["park"], grids["wilderness"]
+    water, wood = grids["water"], grids["wood"]
     print(f"  grid {rows} x {cols}, reach {reach} cells")
 
     byway_ids = set(json.loads(BYWAYS.read_text(encoding="utf-8"))["wayIds"])
@@ -96,11 +97,16 @@ def main():
         out = csv.writer(fh)
         out.writerow(FIELDS)
 
-        processor = osmium.FileProcessor(str(PBF), osmium.osm.WAY).with_locations(
-            f"sparse_file_array,{IDX}"
-        )
+        # Nodes have to stay in the filter even though nothing is done with
+        # them: the location cache is populated by watching them go past, and
+        # a way-only filter leaves every way without geometry.
+        processor = osmium.FileProcessor(
+            str(PBF), osmium.osm.NODE | osmium.osm.WAY
+        ).with_locations(f"sparse_file_array,{IDX}")
 
         for way in processor:
+            if not way.is_way():
+                continue
             hw = way.tags.get("highway")
             if hw not in DRIVABLE:
                 continue
@@ -127,6 +133,7 @@ def main():
                 way.id, hw, surface_class(way.tags),
                 1 if way.id in byway_ids else 0,
                 round(float(park[r, c].mean()), 2),
+                round(float(wilderness[r, c].mean()), 2),
                 round(float(water[r, c].mean()), 2),
                 round(float(wood[r, c].mean()), 2),
                 round(length, 1),
