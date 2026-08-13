@@ -140,10 +140,23 @@ cells, positive meaning byways are closer.
 | `park_prox` | **−3.17** | **Not scenic.** Measures urbanness; see below. |
 
 `leisure=park` is municipal playing fields, so city streets score *best* on it
-and designated byways score *worst*. Weighted as a scenic positive it would
-steer scenic routes into Phoenix. It stays in the table because it is a genuine
-signal of something — just of the opposite thing — and stage 5 asserts its sign
-stays negative so a later change can't quietly adopt it as scenic.
+and designated byways score *worst*. Weighted as a scenic positive **statewide**
+it would steer scenic routes into Phoenix. Stage 5 asserts its sign stays
+negative so a later change can't quietly adopt it as a statewide positive.
+
+**But it is the only signal a city has.** Sampling the grid across the
+Tempe → Gilbert corridor — the first scenario on this README — every point
+scored 0 on woodland and wilderness, so scenic and fastest would have returned
+the identical route for the project's own headline example. Both facts are
+true at once: near a park is a poor proxy for scenic *across Arizona*, and the
+best available answer *inside a city*, where there is no forest to prefer
+instead.
+
+So the urban signal is a fallback, used only where nothing natural is in reach,
+and scaled so it tops out at **4** while a road inside forest scores 7–10. A
+city street can't outrank a forest road; it can only beat another city street.
+That restored a gradient across the metro (Gilbert 4, mid-corridor 3) without
+touching any score in the north.
 
 Sanity from the named assertions: Oak Creek Canyon, Red Rock and San Francisco
 Peaks all score `0.00` on woodland, meaning every sampled point along them sits

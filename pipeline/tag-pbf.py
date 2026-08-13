@@ -18,21 +18,39 @@ STAMP = HERE / "data" / "tagged.json"
 TAG = "scenic_score"
 REACH = 10
 
-# Weights come straight from stage 5. Water measured -0.25 and municipal parks
-# -3.16, so both are zero: weighting a signal that points the wrong way would
-# steer scenic routes into Phoenix. Re-run validate.py before changing these.
+# Weights come straight from stage 5, where woodland separated designated
+# byways from ordinary roads by +4.20 and wilderness by +0.61.
 W_WOOD = 0.7
 W_WILDERNESS = 0.3
 BYWAY_BONUS = 3
 
+# Statewide, nearness to a municipal park measures how built-up a road is, not
+# how pretty — city streets score best on it and byways worst. But inside a
+# city there is no forest to prefer instead, and a park or the canal genuinely
+# is the nicer way through. So it is used only where nothing natural is in
+# reach, and scaled so a city street can never outrank a forest road.
+URBAN_SCALE = 0.45
+W_PARK = 0.6
+W_WATER = 0.4
+
 
 def score(row):
-    wood = REACH - float(row["wood_prox"])
-    wild = REACH - float(row["wilderness_prox"])
-    s = W_WOOD * wood + W_WILDERNESS * wild
+    natural = (
+        W_WOOD * (REACH - float(row["wood_prox"]))
+        + W_WILDERNESS * (REACH - float(row["wilderness_prox"]))
+    )
+
+    # Phoenix, Tempe and Gilbert score zero on both natural layers, which left
+    # the README's own headline trip with no gradient to route on at all.
+    if natural < 1:
+        natural = URBAN_SCALE * (
+            W_PARK * (REACH - float(row["park_prox"]))
+            + W_WATER * (REACH - float(row["water_prox"]))
+        )
+
     if row["byway"] == "1":
-        s += BYWAY_BONUS
-    return max(0, min(10, round(s)))
+        natural += BYWAY_BONUS
+    return max(0, min(10, round(natural)))
 
 
 def load_scores():
