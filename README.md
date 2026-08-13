@@ -106,8 +106,42 @@ It is also already the engine the app talks to, so `/api/directions` barely
 changes.
 
 [`routing/scenic.lua`](routing/scenic.lua) wraps the stock car profile rather
-than forking it, and multiplies the rate by `1 + score * 0.15`. That constant is
-the tuning knob — it trades detour length against scenery.
+than forking it, and multiplies the rate by `1 + score * 5.0`.
+
+### Why the constant is 5.0
+
+[`pipeline/check-routing.py`](pipeline/check-routing.py) answers "does this
+actually change the road taken?" with a plain Dijkstra over the tagged corridor,
+using the same weight formula as the Lua. It needs no routing engine, so the
+question can be settled without Docker or a server.
+
+The constant is not a free tuning range. A detour is only ever justified while
+`t_scenic / t_fastest < (1 + s_scenic·k) / (1 + s_fastest·k)`, and as `k` grows
+that bound converges on the **ratio of the two scores**. So past a point, more
+`k` buys nothing. Measured on Phoenix → Sedona:
+
+| `k` | Result |
+|---|---|
+| 0.15 | **identical to the fastest route** — the original value was a no-op |
+| 2–3 | +15% time, mostly one freeway swapped for another |
+| **5** | **Beeline Hwy → Payson → Mogollon Rim → Red Rock: +55% distance, +91% time** |
+| 8–20 | identical to 5 — saturated |
+
+At 5 it picks the drive an Arizonan would name: the Beeline over the Rim, all
+paved. 4h05 against 2h07, and because OSRM keeps `duration` separate from
+`weight`, the app reports that honestly rather than pretending it's quick.
+
+**Cost must be travel time, not distance.** Weighting by distance alone made a
+20 km/h dirt track look equal to a 90 km/h highway and sent the route down
+Fossil Creek Road, an unpaved forest track. That was a flaw in the measurement,
+not the scoring — and had it gone unnoticed, the constant would have been tuned
+to compensate for it.
+
+**Honest limit: Tempe → Gilbert barely moves** (+0.2 score, 79% shared road) at
+any `k`. The urban tier gives it a gradient, but a grid of arterials through
+Gilbert has no scenic alternative to find. This README opens with that trip as
+the headline scenario; the data says it is the *weakest* case for the idea, and
+long rural drives are where it earns its keep.
 
 Building the graph, after stage 6 (needs Docker and a few GB of free RAM —
 more than the dev laptop has, so this runs on the server):
