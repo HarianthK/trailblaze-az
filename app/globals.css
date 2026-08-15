@@ -1,26 +1,60 @@
 @import "tailwindcss";
 
+/* Desert palette. Scenic is the warm one because that is what the drive looks
+   like; fastest is cool slate so the two read apart at a glance on the map. */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0b0f14;
+  --foreground: #f4f1ec;
+  --panel: 12 17 23;
+  --scenic: #e08a3c;
+  --fastest: #6b8cae;
+  --muted: #8b9199;
+  --line: 255 255 255;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-scenic: var(--scenic);
+  --color-fastest: var(--fastest);
+  --color-muted: var(--muted);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* The panel floats over a bright map, so it needs its own depth rather than
+   relying on the map behind it staying light. */
+.panel {
+  background: rgb(var(--panel) / 0.92);
+  backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid rgb(var(--line) / 0.08);
+  box-shadow:
+    0 1px 0 0 rgb(var(--line) / 0.06) inset,
+    0 24px 48px -12px rgb(0 0 0 / 0.55);
+}
+
+.field {
+  background: rgb(var(--line) / 0.04);
+  border: 1px solid rgb(var(--line) / 0.08);
+  transition: border-color 150ms, background-color 150ms;
+}
+.field:focus {
+  outline: none;
+  border-color: rgb(var(--line) / 0.24);
+  background: rgb(var(--line) / 0.07);
+}
+.field::placeholder {
+  color: rgb(var(--line) / 0.28);
+}
+
+/* Tabular figures stop the duration jittering as the digits change. */
+.tnum {
+  font-variant-numeric: tabular-nums;
 }

@@ -3,7 +3,7 @@
 import { useCallback, useState } from "react"
 import { MapView } from "@/components/map-view"
 import { RouteForm } from "@/components/route-form"
-import type { RouteResult } from "@/lib/types"
+import type { RoutePreference, RouteResult } from "@/lib/types"
 
 /**
  * Owns the selected route so the form (which fetches it) and the map (which
@@ -13,20 +13,22 @@ import type { RouteResult } from "@/lib/types"
 export function RoutePlanner() {
   const [route, setRoute] = useState<RouteResult | null>(null)
   const [compare, setCompare] = useState<RouteResult | null>(null)
+  const [preference, setPreference] = useState<RoutePreference>("fastest")
 
   // Stable, because the form calls it from an effect — a fresh function each
   // render would make that effect loop.
   const handleRouteChange = useCallback(
-    (next: RouteResult | null, other: RouteResult | null = null) => {
+    (next: RouteResult | null, other: RouteResult | null = null, pref: RoutePreference = "fastest") => {
       setRoute(next)
       setCompare(other)
+      setPreference(pref)
     },
     [],
   )
 
   return (
     <div className="relative flex-1">
-      <MapView route={route} compare={compare} />
+      <MapView route={route} compare={compare} isScenic={preference === "scenic"} />
       <div className="pointer-events-none absolute inset-0 flex items-start justify-start p-4 sm:p-6">
         <RouteForm onRouteChange={handleRouteChange} />
       </div>

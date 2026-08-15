@@ -27,8 +27,13 @@ const ROUTE_LINE_LAYER = "route-line"
 const COMPARE_SOURCE = "route-compare"
 const COMPARE_LAYER = "route-compare-line"
 
-// Leaves room for the search panel, which floats over the map's left side.
-const FIT_PADDING = { top: 80, bottom: 80, left: 440, right: 80 }
+// Leaves room for the search panel on the left and the attribution bar along
+// the bottom, which was clipping the start of the route.
+const FIT_PADDING = { top: 90, bottom: 120, left: 440, right: 90 }
+
+// Matches the panel's palette in app/globals.css.
+const SCENIC = "#e08a3c"
+const FASTEST = "#6b8cae"
 
 function emptyLine(coordinates: RouteResult["coordinates"]) {
   return {
@@ -41,9 +46,11 @@ function emptyLine(coordinates: RouteResult["coordinates"]) {
 export function MapView({
   route,
   compare = null,
+  isScenic = false,
 }: {
   route: RouteResult | null
   compare?: RouteResult | null
+  isScenic?: boolean
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
@@ -112,31 +119,43 @@ export function MapView({
         type: "line",
         source: COMPARE_SOURCE,
         layout: { "line-join": "round", "line-cap": "round" },
-        paint: { "line-color": "#71717a", "line-width": 4, "line-opacity": 0.55, "line-dasharray": [2, 1.5] },
+        paint: { "line-color": "#7b828c", "line-width": 3, "line-opacity": 0.6, "line-dasharray": [1.5, 1.5] },
       })
     }
 
     if (source) {
       source.setData(emptyLine(coordinates))
     } else {
-      map.addSource(ROUTE_SOURCE, { type: "geojson", data: emptyLine(coordinates) })
+      // lineMetrics is what makes `line-progress` available, which is how the
+      // draw-on animation below works.
+      map.addSource(ROUTE_SOURCE, {
+        type: "geojson",
+        data: emptyLine(coordinates),
+        lineMetrics: true,
+      })
 
-      // Two layers so the route reads clearly over both pale desert and dense
-      // city blocks: a light casing underneath, the colored line on top.
+      // Three layers: a dark casing so the line survives pale desert and dense
+      // city blocks alike, a soft glow, then the line itself.
       map.addLayer({
         id: ROUTE_CASING_LAYER,
         type: "line",
         source: ROUTE_SOURCE,
         layout: { "line-join": "round", "line-cap": "round" },
-        paint: { "line-color": "#ffffff", "line-width": 9, "line-opacity": 0.9 },
+        paint: { "line-color": "#0b0f14", "line-width": 10, "line-opacity": 0.28, "line-blur": 3 },
       })
       map.addLayer({
         id: ROUTE_LINE_LAYER,
         type: "line",
         source: ROUTE_SOURCE,
         layout: { "line-join": "round", "line-cap": "round" },
-        paint: { "line-color": "#1d4ed8", "line-width": 5 },
+        paint: { "line-color": SCENIC, "line-width": 5 },
       })
+    }
+
+    // Warm for scenic, cool for fastest — the same pairing as the panel, so the
+    // colour alone says which route is on top.
+    if (map.getLayer(ROUTE_LINE_LAYER)) {
+      map.setPaintProperty(ROUTE_LINE_LAYER, "line-color", isScenic ? SCENIC : FASTEST)
     }
 
     if (coordinates.length === 0) return
@@ -147,8 +166,44 @@ export function MapView({
       (acc, coord) => acc.extend(coord),
       new maplibregl.LngLatBounds(all[0], all[0]),
     )
-    map.fitBounds(bounds, { padding: FIT_PADDING, duration: 800 })
-  }, [route, compare, styleReady])
+    map.fitBounds(bounds, { padding: FIT_PADDING, duration: 900 })
+
+    // Draws the line on rather than snapping it in, by sliding the point where
+    // the gradient goes transparent from the start of the route to the end.
+    // (Animating line-dasharray looks like the obvious way and is not: MapLibre
+    // rebuilds a dash texture per value and throws on a zero-length dash.)
+    const layer = ROUTE_LINE_LAYER
+    if (!map.getLayer(layer)) return
+
+    const colour = isScenic ? SCENIC : FASTEST
+    const CLEAR = "rgba(0,0,0,0)"
+    let frame = 0
+    const started = performance.now()
+    const DRAW_MS = 850
+
+    const step = (now: number) => {
+      const t = Math.min((now - started) / DRAW_MS, 1)
+      const eased = 1 - Math.pow(1 - t, 3)
+      // Stops must strictly ascend, so keep the cut off both ends.
+      const cut = Math.min(Math.max(eased, 0.002), 0.998)
+      map.setPaintProperty(layer, "line-gradient", [
+        "interpolate",
+        ["linear"],
+        ["line-progress"],
+        0,
+        colour,
+        cut,
+        colour,
+        Math.min(cut + 0.001, 0.999),
+        CLEAR,
+        1,
+        CLEAR,
+      ])
+      if (t < 1) frame = requestAnimationFrame(step)
+    }
+    frame = requestAnimationFrame(step)
+    return () => cancelAnimationFrame(frame)
+  }, [route, compare, isScenic, styleReady])
 
   // Inline style, not a Tailwind class: MapLibre's own CSS sets `position:
   // relative` on this element (it needs that for its internal controls/canvas

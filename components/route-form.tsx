@@ -1,12 +1,12 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { AnimatePresence, motion } from "motion/react"
 import { ApiError, fetchRoutes, geocode } from "@/lib/api"
 import type { DemoTrip, RoutePreference, RouteResult } from "@/lib/types"
 
 function formatDistance(meters: number) {
-  const miles = meters * 0.000621371
-  return `${miles.toFixed(1)} mi`
+  return `${(meters * 0.000621371).toFixed(1)} mi`
 }
 
 function formatDuration(seconds: number) {
@@ -19,13 +19,20 @@ function formatDuration(seconds: number) {
 
 function formatGap(scenic: RouteResult, fastest: RouteResult) {
   const extraMinutes = Math.round((scenic.durationSeconds - fastest.durationSeconds) / 60)
-  const extraMiles = (scenic.distanceMeters - fastest.distanceMeters) * 0.000621371
-  if (extraMinutes <= 0) return "about the same time as the fastest route"
-  return `${formatDuration(extraMinutes * 60)} longer, ${extraMiles > 0 ? "+" : ""}${extraMiles.toFixed(0)} mi`
+  const extraMiles = Math.round((scenic.distanceMeters - fastest.distanceMeters) * 0.000621371)
+  if (extraMinutes <= 0) return "about the same as the fastest way"
+  // Tempe to Gilbert is a minute longer and slightly shorter, where "+0 mi"
+  // reads like a bug rather than a rounding.
+  if (extraMiles <= 0) return `${formatDuration(extraMinutes * 60)} longer`
+  return `${formatDuration(extraMinutes * 60)} longer · +${extraMiles} mi`
 }
 
 type Props = {
-  onRouteChange: (route: RouteResult | null, compare?: RouteResult | null) => void
+  onRouteChange: (
+    route: RouteResult | null,
+    compare?: RouteResult | null,
+    preference?: RoutePreference,
+  ) => void
 }
 
 export function RouteForm({ onRouteChange }: Props) {
@@ -36,7 +43,7 @@ export function RouteForm({ onRouteChange }: Props) {
   const [preference, setPreference] = useState<RoutePreference>("fastest")
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [result, setResult] = useState<RouteResult | null>(null)
+  const [searchResult, setSearchResult] = useState<RouteResult | null>(null)
   const [usedAlternative, setUsedAlternative] = useState(false)
   const [matched, setMatched] = useState<{ from: string; to: string } | null>(null)
 
@@ -48,14 +55,19 @@ export function RouteForm({ onRouteChange }: Props) {
       .catch(() => setTrips([]))
   }, [])
 
-  // Switching fastest/scenic on a precomputed trip is instant — both routes
-  // are already in hand, so there is nothing to fetch.
+  // Derived, not stored: on a precomputed trip the answer is already in hand,
+  // so keeping a copy in state only creates something that can go stale.
+  const result = activeTrip ? activeTrip[preference] : searchResult
+
+  // Switching on a precomputed trip is instant — nothing to fetch, just tell
+  // the map which of the two routes is now in front.
   useEffect(() => {
     if (!activeTrip) return
-    const chosen = activeTrip[preference]
-    const other = activeTrip[preference === "scenic" ? "fastest" : "scenic"]
-    setResult(chosen)
-    onRouteChange(chosen, other)
+    onRouteChange(
+      activeTrip[preference],
+      activeTrip[preference === "scenic" ? "fastest" : "scenic"],
+      preference,
+    )
   }, [activeTrip, preference, onRouteChange])
 
   function pickTrip(trip: DemoTrip) {
@@ -76,100 +88,126 @@ export function RouteForm({ onRouteChange }: Props) {
       const [origin, destination] = await Promise.all([geocode(from), geocode(to)])
       const routes = await fetchRoutes(origin.coords, destination.coords)
 
-      // Placeholder for real scenic costing (README, Phase 2): OSRM only ranks
-      // by speed, so the best "scenic" stand-in available right now is its
-      // second alternative — which is usually only marginally different.
       const wantsAlternative = preference === "scenic" && routes.length > 1
       const chosen = wantsAlternative ? routes[1] : routes[0]
 
       setUsedAlternative(wantsAlternative)
       setMatched({ from: origin.label, to: destination.label })
-      setResult(chosen)
-      onRouteChange(chosen)
+      setSearchResult(chosen)
+      onRouteChange(chosen, null, preference)
     } catch (caught) {
       const message =
         caught instanceof ApiError
           ? caught.message
           : "Something went wrong finding that route. Try again."
       setError(message)
-      setResult(null)
+      setSearchResult(null)
       setMatched(null)
-      onRouteChange(null)
+      onRouteChange(null, null, preference)
     } finally {
       setLoading(false)
     }
   }
 
+  const scenicActive = preference === "scenic"
+
   return (
-    <form
+    <motion.form
       onSubmit={handleSubmit}
-      className="pointer-events-auto flex w-full max-w-sm flex-col gap-3 rounded-xl border border-black/10 bg-white/95 p-4 shadow-lg backdrop-blur"
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+      className="panel pointer-events-auto flex w-full max-w-[22rem] flex-col gap-5 rounded-2xl p-5"
     >
+      <div className="flex flex-col gap-1">
+        <h1 className="text-[0.95rem] font-semibold tracking-tight text-foreground">
+          Trailblaze <span className="text-scenic">AZ</span>
+        </h1>
+        <p className="text-[0.7rem] leading-relaxed text-muted">
+          Arizona routes that optimise for something other than speed.
+        </p>
+      </div>
+
       {trips.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          <span className="text-xs font-medium text-zinc-500">Try a route</span>
+        <div className="flex flex-col gap-2">
+          <span className="text-[0.65rem] font-medium uppercase tracking-[0.14em] text-muted">
+            Try a route
+          </span>
           <div className="flex flex-wrap gap-1.5">
-            {trips.map((trip) => (
-              <button
-                key={trip.key}
-                type="button"
-                onClick={() => pickTrip(trip)}
-                aria-pressed={activeTrip?.key === trip.key}
-                className={`rounded-full border px-2.5 py-1 text-xs transition-colors ${
-                  activeTrip?.key === trip.key
-                    ? "border-zinc-900 bg-zinc-900 text-white"
-                    : "border-zinc-300 text-zinc-600 hover:border-zinc-500"
-                }`}
-              >
-                {trip.from} → {trip.to}
-              </button>
-            ))}
+            {trips.map((trip) => {
+              const active = activeTrip?.key === trip.key
+              return (
+                <button
+                  key={trip.key}
+                  type="button"
+                  onClick={() => pickTrip(trip)}
+                  aria-pressed={active}
+                  className={`relative rounded-full px-2.5 py-1 text-[0.7rem] transition-colors ${
+                    active ? "text-[#0b0f14]" : "text-muted hover:text-foreground"
+                  }`}
+                >
+                  {active && (
+                    <motion.span
+                      layoutId="trip-pill"
+                      className="absolute inset-0 rounded-full bg-scenic"
+                      transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                    />
+                  )}
+                  <span className="relative">
+                    {trip.from} → {trip.to}
+                  </span>
+                </button>
+              )
+            })}
           </div>
         </div>
       )}
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="from" className="text-xs font-medium text-zinc-500">
-          From
-        </label>
-        <input
-          id="from"
-          name="from"
-          value={from}
-          onChange={(e) => setFrom(e.target.value)}
-          placeholder="Tempe, AZ"
-          required
-          className="rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500"
-        />
+      <div className="flex flex-col gap-2">
+        {(
+          [
+            ["from", from, setFrom, "Tempe, AZ"],
+            ["to", to, setTo, "Gilbert, AZ"],
+          ] as const
+        ).map(([id, value, set, placeholder]) => (
+          <div key={id} className="flex items-center gap-2.5">
+            <span
+              aria-hidden
+              className={`size-1.5 shrink-0 rounded-full ${id === "from" ? "bg-muted" : "bg-scenic"}`}
+            />
+            <input
+              id={id}
+              name={id}
+              value={value}
+              onChange={(e) => set(e.target.value)}
+              placeholder={placeholder}
+              aria-label={id === "from" ? "From" : "To"}
+              required
+              className="field w-full rounded-lg px-3 py-2 text-[0.8rem] text-foreground"
+            />
+          </div>
+        ))}
       </div>
 
-      <div className="flex flex-col gap-1">
-        <label htmlFor="to" className="text-xs font-medium text-zinc-500">
-          To
-        </label>
-        <input
-          id="to"
-          name="to"
-          value={to}
-          onChange={(e) => setTo(e.target.value)}
-          placeholder="Gilbert, AZ"
-          required
-          className="rounded-md border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500"
-        />
-      </div>
-
-      <div className="flex rounded-md border border-zinc-300 p-1 text-sm">
+      <div className="relative flex rounded-lg bg-white/[0.04] p-1 text-[0.75rem]">
         {(["fastest", "scenic"] as const).map((option) => (
           <button
             key={option}
             type="button"
             onClick={() => setPreference(option)}
             aria-pressed={preference === option}
-            className={`flex-1 rounded px-3 py-1.5 capitalize transition-colors ${
-              preference === option ? "bg-zinc-900 text-white" : "text-zinc-600 hover:bg-zinc-100"
+            className={`relative flex-1 rounded-md px-3 py-1.5 capitalize transition-colors ${
+              preference === option ? "text-[#0b0f14]" : "text-muted hover:text-foreground"
             }`}
           >
-            {option}
+            {preference === option && (
+              <motion.span
+                layoutId="pref-pill"
+                className={`absolute inset-0 rounded-md ${option === "scenic" ? "bg-scenic" : "bg-fastest"}`}
+                transition={{ type: "spring", stiffness: 420, damping: 34 }}
+              />
+            )}
+            <span className="relative font-medium">{option}</span>
           </button>
         ))}
       </div>
@@ -177,50 +215,85 @@ export function RouteForm({ onRouteChange }: Props) {
       <button
         type="submit"
         disabled={loading}
-        className="rounded-md bg-zinc-900 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:bg-zinc-400"
+        className="rounded-lg bg-white/[0.06] px-3 py-2 text-[0.75rem] font-medium text-foreground transition-colors hover:bg-white/[0.11] disabled:cursor-not-allowed disabled:text-muted"
       >
         {loading ? "Finding route…" : "Find route"}
       </button>
 
-      {error && (
-        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">
-          {error}
-        </p>
-      )}
+      <AnimatePresence mode="popLayout">
+        {error && (
+          <motion.p
+            key="error"
+            role="alert"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="rounded-lg bg-red-500/10 px-3 py-2 text-[0.7rem] text-red-300"
+          >
+            {error}
+          </motion.p>
+        )}
 
-      {result && !error && (
-        <div className="flex flex-col gap-1 border-t border-zinc-200 pt-3">
-          <div className="flex items-baseline justify-between">
-            <span className="text-lg font-semibold text-zinc-900">
-              {formatDuration(result.durationSeconds)}
-            </span>
-            <span className="text-sm text-zinc-500">{formatDistance(result.distanceMeters)}</span>
-          </div>
-          {matched && (
-            // Searches are restricted to Arizona, so an out-of-state name can
-            // quietly match something unexpected inside the state. Showing what
-            // actually matched makes that visible instead of silently wrong.
-            <p className="text-xs leading-relaxed text-zinc-500">
-              {matched.from} → {matched.to}
-            </p>
-          )}
-          {activeTrip ? (
-            <p className="text-xs leading-relaxed text-zinc-500">
-              {preference === "scenic"
-                ? `Scenic: ${formatGap(activeTrip.scenic, activeTrip.fastest)}. The fastest route is dashed.`
-                : "Fastest route. Switch to scenic to see the pretty way."}
-            </p>
-          ) : (
-            preference === "scenic" && (
-              <p className="text-xs leading-relaxed text-zinc-500">
-                {usedAlternative
-                  ? "Only an alternate route for typed places — pick one of the routes above for real scenic routing."
-                  : "No alternate route here — showing the fastest one."}
+        {result && !error && (
+          <motion.div
+            key="result"
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            className="flex flex-col gap-2 border-t border-white/[0.07] pt-4"
+          >
+            <div className="flex items-baseline justify-between">
+              <AnimatePresence mode="popLayout" initial={false}>
+                <motion.span
+                  key={result.durationSeconds}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -8 }}
+                  transition={{ duration: 0.22 }}
+                  className={`tnum text-2xl font-semibold tracking-tight ${
+                    scenicActive ? "text-scenic" : "text-foreground"
+                  }`}
+                >
+                  {formatDuration(result.durationSeconds)}
+                </motion.span>
+              </AnimatePresence>
+              <span className="tnum text-[0.75rem] text-muted">
+                {formatDistance(result.distanceMeters)}
+              </span>
+            </div>
+
+            {activeTrip ? (
+              <p className="text-[0.7rem] leading-relaxed text-muted">
+                {scenicActive ? (
+                  <>
+                    <span className="text-scenic">Scenic</span> — {formatGap(activeTrip.scenic, activeTrip.fastest)}.
+                    The fast way is dashed.
+                  </>
+                ) : (
+                  <>Fastest way. Switch to scenic for the drive worth taking.</>
+                )}
               </p>
-            )
-          )}
-        </div>
-      )}
-    </form>
+            ) : (
+              <>
+                {matched && (
+                  // Searches are restricted to Arizona, so an out-of-state name
+                  // can quietly match something odd inside it.
+                  <p className="text-[0.7rem] leading-relaxed text-muted">
+                    {matched.from} → {matched.to}
+                  </p>
+                )}
+                {scenicActive && (
+                  <p className="text-[0.7rem] leading-relaxed text-muted">
+                    {usedAlternative
+                      ? "Only an alternate route for typed places — pick a route above for real scenic routing."
+                      : "No alternate route here — showing the fastest one."}
+                  </p>
+                )}
+              </>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.form>
   )
 }
