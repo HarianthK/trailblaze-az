@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { ApiError, fetchRoutes, geocode } from "@/lib/api"
-import type { RoutePreference, RouteResult } from "@/lib/types"
+import type { DemoTrip, RoutePreference, RouteResult } from "@/lib/types"
 
 function formatDistance(meters: number) {
   const miles = meters * 0.000621371
@@ -17,11 +17,20 @@ function formatDuration(seconds: number) {
   return minutes === 0 ? `${hours} hr` : `${hours} hr ${minutes} min`
 }
 
+function formatGap(scenic: RouteResult, fastest: RouteResult) {
+  const extraMinutes = Math.round((scenic.durationSeconds - fastest.durationSeconds) / 60)
+  const extraMiles = (scenic.distanceMeters - fastest.distanceMeters) * 0.000621371
+  if (extraMinutes <= 0) return "about the same time as the fastest route"
+  return `${formatDuration(extraMinutes * 60)} longer, ${extraMiles > 0 ? "+" : ""}${extraMiles.toFixed(0)} mi`
+}
+
 type Props = {
-  onRouteChange: (route: RouteResult | null) => void
+  onRouteChange: (route: RouteResult | null, compare?: RouteResult | null) => void
 }
 
 export function RouteForm({ onRouteChange }: Props) {
+  const [trips, setTrips] = useState<DemoTrip[]>([])
+  const [activeTrip, setActiveTrip] = useState<DemoTrip | null>(null)
   const [from, setFrom] = useState("Tempe, AZ")
   const [to, setTo] = useState("Gilbert, AZ")
   const [preference, setPreference] = useState<RoutePreference>("fastest")
@@ -31,10 +40,37 @@ export function RouteForm({ onRouteChange }: Props) {
   const [usedAlternative, setUsedAlternative] = useState(false)
   const [matched, setMatched] = useState<{ from: string; to: string } | null>(null)
 
+  // 300 KB of coordinates, so it is fetched once rather than bundled.
+  useEffect(() => {
+    fetch("/demo-routes.json")
+      .then((r) => (r.ok ? r.json() : []))
+      .then(setTrips)
+      .catch(() => setTrips([]))
+  }, [])
+
+  // Switching fastest/scenic on a precomputed trip is instant — both routes
+  // are already in hand, so there is nothing to fetch.
+  useEffect(() => {
+    if (!activeTrip) return
+    const chosen = activeTrip[preference]
+    const other = activeTrip[preference === "scenic" ? "fastest" : "scenic"]
+    setResult(chosen)
+    onRouteChange(chosen, other)
+  }, [activeTrip, preference, onRouteChange])
+
+  function pickTrip(trip: DemoTrip) {
+    setActiveTrip(trip)
+    setFrom(`${trip.from}, AZ`)
+    setTo(`${trip.to}, AZ`)
+    setError(null)
+    setMatched(null)
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setLoading(true)
     setError(null)
+    setActiveTrip(null)
 
     try {
       const [origin, destination] = await Promise.all([geocode(from), geocode(to)])
@@ -69,6 +105,29 @@ export function RouteForm({ onRouteChange }: Props) {
       onSubmit={handleSubmit}
       className="pointer-events-auto flex w-full max-w-sm flex-col gap-3 rounded-xl border border-black/10 bg-white/95 p-4 shadow-lg backdrop-blur"
     >
+      {trips.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <span className="text-xs font-medium text-zinc-500">Try a route</span>
+          <div className="flex flex-wrap gap-1.5">
+            {trips.map((trip) => (
+              <button
+                key={trip.key}
+                type="button"
+                onClick={() => pickTrip(trip)}
+                aria-pressed={activeTrip?.key === trip.key}
+                className={`rounded-full border px-2.5 py-1 text-xs transition-colors ${
+                  activeTrip?.key === trip.key
+                    ? "border-zinc-900 bg-zinc-900 text-white"
+                    : "border-zinc-300 text-zinc-600 hover:border-zinc-500"
+                }`}
+              >
+                {trip.from} → {trip.to}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col gap-1">
         <label htmlFor="from" className="text-xs font-medium text-zinc-500">
           From
@@ -145,12 +204,20 @@ export function RouteForm({ onRouteChange }: Props) {
               {matched.from} → {matched.to}
             </p>
           )}
-          {preference === "scenic" && (
-            <p className="text-xs text-zinc-500">
-              {usedAlternative
-                ? "Showing an alternate route. True scenic routing lands in Phase 2."
-                : "No alternate route here — showing the fastest one."}
+          {activeTrip ? (
+            <p className="text-xs leading-relaxed text-zinc-500">
+              {preference === "scenic"
+                ? `Scenic: ${formatGap(activeTrip.scenic, activeTrip.fastest)}. The fastest route is dashed.`
+                : "Fastest route. Switch to scenic to see the pretty way."}
             </p>
+          ) : (
+            preference === "scenic" && (
+              <p className="text-xs leading-relaxed text-zinc-500">
+                {usedAlternative
+                  ? "Only an alternate route for typed places — pick one of the routes above for real scenic routing."
+                  : "No alternate route here — showing the fastest one."}
+              </p>
+            )
           )}
         </div>
       )}
