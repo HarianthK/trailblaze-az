@@ -16,7 +16,9 @@ import type { RouteResult } from "@/lib/types"
 // see README for the plan to move to a self-hosted Arizona-only tile set.
 const ARIZONA_CENTER: [number, number] = [-111.83, 33.36]
 const INITIAL_ZOOM = 9.5
-const STYLE_URL = "https://tiles.openfreemap.org/styles/liberty"
+// Dark, to match the panel. On the default light style the route had to
+// compete with a hundred orange roads and every cafe in Phoenix.
+const STYLE_URL = "https://tiles.openfreemap.org/styles/dark"
 
 const ROUTE_SOURCE = "route"
 const ROUTE_CASING_LAYER = "route-casing"
@@ -82,6 +84,13 @@ export function MapView({
     mapRef.current = map
 
     map.on("load", () => {
+      // Shops, cafes and fuel stations are noise on a map about which highway
+      // to take. Place names stay — they are how you read where a route goes.
+      for (const layer of map.getStyle().layers ?? []) {
+        if (layer.type === "symbol" && /poi|shop|amenity/i.test(layer.id)) {
+          map.setLayoutProperty(layer.id, "visibility", "none")
+        }
+      }
       map.resize()
       setStyleReady(true)
     })
@@ -119,7 +128,14 @@ export function MapView({
         type: "line",
         source: COMPARE_SOURCE,
         layout: { "line-join": "round", "line-cap": "round" },
-        paint: { "line-color": "#7b828c", "line-width": 3, "line-opacity": 0.6, "line-dasharray": [1.5, 1.5] },
+        paint: {
+          // Pale enough to read on a dark basemap, faint enough to stay behind
+          // the route you actually chose.
+          "line-color": "#c8cdd4",
+          "line-width": 2.5,
+          "line-opacity": 0.45,
+          "line-dasharray": [2, 2],
+        },
       })
     }
 
@@ -141,7 +157,9 @@ export function MapView({
         type: "line",
         source: ROUTE_SOURCE,
         layout: { "line-join": "round", "line-cap": "round" },
-        paint: { "line-color": "#0b0f14", "line-width": 10, "line-opacity": 0.28, "line-blur": 3 },
+        // A glow rather than a casing: on a dark map a dark outline does
+        // nothing, but a soft bloom under the line makes it sit above.
+        paint: { "line-color": SCENIC, "line-width": 14, "line-opacity": 0.16, "line-blur": 10 },
       })
       map.addLayer({
         id: ROUTE_LINE_LAYER,
@@ -154,8 +172,8 @@ export function MapView({
 
     // Warm for scenic, cool for fastest — the same pairing as the panel, so the
     // colour alone says which route is on top.
-    if (map.getLayer(ROUTE_LINE_LAYER)) {
-      map.setPaintProperty(ROUTE_LINE_LAYER, "line-color", isScenic ? SCENIC : FASTEST)
+    if (map.getLayer(ROUTE_CASING_LAYER)) {
+      map.setPaintProperty(ROUTE_CASING_LAYER, "line-color", isScenic ? SCENIC : FASTEST)
     }
 
     if (coordinates.length === 0) return
