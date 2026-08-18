@@ -132,9 +132,9 @@ export function MapView({
           type: "hillshade",
           source: DEM_SOURCE,
           paint: {
-            "hillshade-exaggeration": 0.55,
+            "hillshade-exaggeration": 0.85,
             "hillshade-shadow-color": "#05070a",
-            "hillshade-highlight-color": "#6d6552",
+            "hillshade-highlight-color": "#8a7d61",
             "hillshade-accent-color": "#1b2028",
           },
         },
