@@ -29,9 +29,17 @@ const ROUTE_LINE_LAYER = "route-line"
 const COMPARE_SOURCE = "route-compare"
 const COMPARE_LAYER = "route-compare-line"
 
-// Leaves room for the search panel on the left and the attribution bar along
-// the bottom, which was clipping the start of the route.
-const FIT_PADDING = { top: 90, bottom: 120, left: 440, right: 90 }
+// Leaves room for the panel, which sits to the left on a desktop and along the
+// bottom on a phone. Reserving 440px on the left of a 390px screen made the
+// route impossible to fit, so the map just showed somewhere else entirely.
+const isNarrow = () => typeof window !== "undefined" && window.innerWidth < 640
+
+function fitPadding() {
+  if (!isNarrow()) return { top: 90, bottom: 120, left: 440, right: 90 }
+  // The sheet is capped at 60vh, so the route has to clear that much plus the
+  // gap under it, or half the drive ends up hidden behind the panel.
+  return { top: 70, bottom: Math.round(window.innerHeight * 0.6) + 30, left: 28, right: 28 }
+}
 
 // Matches the panel's palette in app/globals.css.
 const SCENIC = "#e08a3c"
@@ -66,6 +74,9 @@ export function MapView({
       style: STYLE_URL,
       center: ARIZONA_CENTER,
       zoom: INITIAL_ZOOM,
+      // The style ships its own attribution control, so the default one made
+      // every credit appear twice. One control, all the credits.
+      attributionControl: false,
     })
 
     map.addControl(new maplibregl.NavigationControl(), "top-right")
@@ -76,9 +87,11 @@ export function MapView({
       new maplibregl.AttributionControl({
         compact: true,
         customAttribution:
-          'Routing by <a href="https://project-osrm.org/">OSRM</a> · Geocoding by <a href="https://nominatim.org/">Nominatim</a> · Data © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors (ODbL)',
+          'Routing by <a href="https://project-osrm.org/">OSRM</a> · Geocoding by <a href="https://nominatim.org/">Nominatim</a> · Tiles <a href="https://openfreemap.org">OpenFreeMap</a> © <a href="https://www.openmaptiles.org/">OpenMapTiles</a> · Data © <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors (ODbL)',
       }),
-      "bottom-right",
+      // On a phone the sheet occupies the bottom, so the credits move to the
+      // only free corner. They are required to stay visible.
+      isNarrow() ? "top-left" : "bottom-right",
     )
 
     mapRef.current = map
@@ -91,6 +104,15 @@ export function MapView({
           map.setLayoutProperty(layer.id, "visibility", "none")
         }
       }
+      // Compact mode starts expanded, which on a phone covers a quarter of the
+      // map. Collapse it to the (i); tapping that still opens the credits.
+      if (isNarrow()) {
+        map
+          .getContainer()
+          .querySelector(".maplibregl-ctrl-attrib")
+          ?.classList.remove("maplibregl-compact-show")
+      }
+
       map.resize()
       setStyleReady(true)
     })
@@ -184,7 +206,7 @@ export function MapView({
       (acc, coord) => acc.extend(coord),
       new maplibregl.LngLatBounds(all[0], all[0]),
     )
-    map.fitBounds(bounds, { padding: FIT_PADDING, duration: 900 })
+    map.fitBounds(bounds, { padding: fitPadding(), duration: 900 })
 
     // Draws the line on rather than snapping it in, by sliding the point where
     // the gradient goes transparent from the start of the route to the end.

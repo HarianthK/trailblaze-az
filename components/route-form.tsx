@@ -117,13 +117,13 @@ export function RouteForm({ onRouteChange }: Props) {
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      className="panel pointer-events-auto flex w-full max-w-[22rem] flex-col gap-5 rounded-2xl p-5"
+      className="panel pointer-events-auto flex max-h-[60vh] w-full max-w-[22rem] flex-col gap-4 overflow-y-auto overscroll-contain rounded-2xl p-4 sm:max-h-none sm:gap-5 sm:overflow-visible sm:p-5"
     >
       <div className="flex flex-col gap-1">
         <h1 className="text-[0.95rem] font-semibold tracking-tight text-foreground">
           Trailblaze <span className="text-scenic">AZ</span>
         </h1>
-        <p className="text-[0.7rem] leading-relaxed text-muted">
+        <p className="hidden text-[0.7rem] leading-relaxed text-muted sm:block">
           Arizona routes that optimise for something other than speed.
         </p>
       </div>

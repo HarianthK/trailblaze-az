@@ -92,3 +92,20 @@ body {
 .maplibregl-ctrl-attrib-button {
   filter: invert(1) opacity(0.5);
 }
+
+/* On a phone the credits ran to four lines and covered the map. Collapsed to
+   the (i) button, which expands on tap — still available, just not in the way. */
+@media (max-width: 639px) {
+  .maplibregl-ctrl-attrib.maplibregl-compact:not(.maplibregl-compact-show) {
+    background: transparent !important;
+    border: 0;
+    box-shadow: none;
+  }
+  .maplibregl-ctrl-attrib.maplibregl-compact:not(.maplibregl-compact-show)
+    .maplibregl-ctrl-attrib-inner {
+    display: none;
+  }
+  .maplibregl-ctrl-attrib.maplibregl-compact-show .maplibregl-ctrl-attrib-inner {
+    max-width: 70vw;
+  }
+}

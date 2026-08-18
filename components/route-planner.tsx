@@ -29,7 +29,8 @@ export function RoutePlanner() {
   return (
     <div className="relative flex-1">
       <MapView route={route} compare={compare} isScenic={preference === "scenic"} />
-      <div className="pointer-events-none absolute inset-0 flex items-start justify-start p-4 sm:p-6">
+      {/* Bottom sheet on a phone, floating card on a desktop. */}
+      <div className="pointer-events-none absolute inset-0 flex items-end justify-center p-3 sm:items-start sm:justify-start sm:p-6">
         <RouteForm onRouteChange={handleRouteChange} />
       </div>
     </div>
