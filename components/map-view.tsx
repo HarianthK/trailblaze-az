@@ -29,6 +29,11 @@ const ROUTE_LINE_LAYER = "route-line"
 const COMPARE_SOURCE = "route-compare"
 const COMPARE_LAYER = "route-compare-line"
 
+// Free elevation tiles on AWS Open Data — no key, no limit, same as the map.
+const DEM_SOURCE = "terrain-dem"
+const DEM_TILES = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png"
+const HILLSHADE_LAYER = "hillshade"
+
 // Leaves room for the panel, which sits to the left on a desktop and along the
 // bottom on a phone. Reserving 440px on the left of a 390px screen made the
 // route impossible to fit, so the map just showed somewhere else entirely.
@@ -99,11 +104,42 @@ export function MapView({
     map.on("load", () => {
       // Shops, cafes and fuel stations are noise on a map about which highway
       // to take. Place names stay — they are how you read where a route goes.
-      for (const layer of map.getStyle().layers ?? []) {
+      const layers = map.getStyle().layers ?? []
+      for (const layer of layers) {
         if (layer.type === "symbol" && /poi|shop|amenity/i.test(layer.id)) {
           map.setLayoutProperty(layer.id, "visibility", "none")
         }
       }
+
+      // Terrain is the point of the whole app: on a flat map there is no
+      // visible reason why the scenic route goes the long way round. Shaded,
+      // you can see the Mogollon Rim it climbs over and the interstate skirting it.
+      map.addSource(DEM_SOURCE, {
+        type: "raster-dem",
+        tiles: [DEM_TILES],
+        encoding: "terrarium",
+        tileSize: 256,
+        maxzoom: 13,
+        attribution:
+          'Elevation <a href="https://registry.opendata.aws/terrain-tiles/">Terrain Tiles</a> on AWS Open Data',
+      })
+
+      // Under the roads, so it reads as ground rather than an overlay on top.
+      const firstLine = layers.find((l) => l.type === "line")?.id
+      map.addLayer(
+        {
+          id: HILLSHADE_LAYER,
+          type: "hillshade",
+          source: DEM_SOURCE,
+          paint: {
+            "hillshade-exaggeration": 0.55,
+            "hillshade-shadow-color": "#05070a",
+            "hillshade-highlight-color": "#6d6552",
+            "hillshade-accent-color": "#1b2028",
+          },
+        },
+        firstLine,
+      )
       // Compact mode starts expanded, which on a phone covers a quarter of the
       // map. Collapse it to the (i); tapping that still opens the credits.
       if (isNarrow()) {
