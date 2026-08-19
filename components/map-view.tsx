@@ -109,6 +109,17 @@ export function MapView({
         if (layer.type === "symbol" && /poi|shop|amenity/i.test(layer.id)) {
           map.setLayoutProperty(layer.id, "visibility", "none")
         }
+
+        // The dark style draws roads very faintly. With terrain behind them
+        // they disappear, and the route then looks like a line floating over
+        // scenery rather than a road you could actually drive.
+        if (layer.type === "line" && /road|highway|motorway|trunk|primary/i.test(layer.id)) {
+          try {
+            map.setPaintProperty(layer.id, "line-opacity", 0.85)
+          } catch {
+            // Some road layers drive opacity off zoom; leave those alone.
+          }
+        }
       }
 
       // Terrain is the point of the whole app: on a flat map there is no
@@ -131,11 +142,16 @@ export function MapView({
           id: HILLSHADE_LAYER,
           type: "hillshade",
           source: DEM_SOURCE,
+          // The elevation data covers the sea floor too, so zoomed out far
+          // enough to see an ocean you get mid-ocean ridges shaded like hills,
+          // which reads as scratches on the screen. This app never needs
+          // terrain above the scale of a state.
+          minzoom: 6,
           paint: {
-            "hillshade-exaggeration": 0.85,
+            "hillshade-exaggeration": 0.28,
             "hillshade-shadow-color": "#05070a",
-            "hillshade-highlight-color": "#8a7d61",
-            "hillshade-accent-color": "#1b2028",
+            "hillshade-highlight-color": "#4a4335",
+            "hillshade-accent-color": "#12161c",
           },
         },
         firstLine,
@@ -190,8 +206,8 @@ export function MapView({
           // Pale enough to read on a dark basemap, faint enough to stay behind
           // the route you actually chose.
           "line-color": "#c8cdd4",
-          "line-width": 2.5,
-          "line-opacity": 0.45,
+          "line-width": 3,
+          "line-opacity": 0.5,
           "line-dasharray": [2, 2],
         },
       })
@@ -217,14 +233,14 @@ export function MapView({
         layout: { "line-join": "round", "line-cap": "round" },
         // A glow rather than a casing: on a dark map a dark outline does
         // nothing, but a soft bloom under the line makes it sit above.
-        paint: { "line-color": SCENIC, "line-width": 14, "line-opacity": 0.16, "line-blur": 10 },
+        paint: { "line-color": SCENIC, "line-width": 18, "line-opacity": 0.28, "line-blur": 12 },
       })
       map.addLayer({
         id: ROUTE_LINE_LAYER,
         type: "line",
         source: ROUTE_SOURCE,
         layout: { "line-join": "round", "line-cap": "round" },
-        paint: { "line-color": SCENIC, "line-width": 5 },
+        paint: { "line-color": SCENIC, "line-width": 7 },
       })
     }
 

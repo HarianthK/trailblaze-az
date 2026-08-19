@@ -1,0 +1,11 @@
+# Vercel reads this, not .gitignore, so the gitignored pipeline artefacts were
+# being uploaded — 4.6 GB of map extracts and osmium index caches.
+
+# Offline tooling. It builds the data; it never runs on the server.
+pipeline/
+
+# The OSRM profile belongs to the routing server, not to this app.
+routing/
+
+node_modules/
+.next/

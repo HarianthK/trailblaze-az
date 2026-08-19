@@ -64,19 +64,29 @@ body {
    it does not hide them. */
 .maplibregl-ctrl-group,
 .maplibregl-ctrl-attrib.maplibregl-compact {
-  background: rgb(var(--panel) / 0.88) !important;
+  background: rgb(var(--panel) / 0.94) !important;
   backdrop-filter: blur(12px);
   border: 1px solid rgb(var(--line) / 0.08);
   box-shadow: 0 8px 20px -8px rgb(0 0 0 / 0.6);
 }
 
 .maplibregl-ctrl-group button + button {
-  border-top-color: rgb(var(--line) / 0.08);
+  border-top-color: rgb(var(--line) / 0.14);
+}
+
+/* The default buttons are 29px and, dimmed against a dark map, easy to miss
+   entirely — which is the same as not having zoom controls at all. */
+.maplibregl-ctrl-group button {
+  width: 38px;
+  height: 38px;
+}
+.maplibregl-ctrl-group:hover {
+  border-color: rgb(var(--line) / 0.2);
 }
 
 /* The control glyphs are black SVGs, so they need inverting to read. */
 .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
-  filter: invert(1) opacity(0.65);
+  filter: invert(1) opacity(0.92);
 }
 .maplibregl-ctrl-group button:hover .maplibregl-ctrl-icon {
   filter: invert(1) opacity(0.95);
