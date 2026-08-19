@@ -1,81 +1,103 @@
 # Trailblaze AZ
 
-A route planner for Arizona that can optimize for something other than speed.
+A route planner for Arizona that can pick the pretty way instead of the quick way.
 
-Google/Apple Maps only really answer "what's the fastest way there." This
-answers a different question: **what's the best way there, given what you
-actually care about right now** — more scenery, fewer highways, a stop at a
-good restaurant along the way, whatever the trip calls for.
+Map apps all answer the same question: what's fastest? This one answers a
+different one — what's the *nicest* way, if you have the time?
 
-## The two scenarios this exists for
+Ask it for Phoenix to Sedona and it won't send you up the interstate. It sends
+you out east, up the Beeline, over the Mogollon Rim, and down into Sedona on
+the Red Rock byway. Two hours longer. Worth it.
 
-1. **Scenic vs. fastest** — driving Phoenix to Sedona, you have the day free
-   and would rather go over the Mogollon Rim than up the interstate, even
-   though it costs two hours. Or the opposite: you're in a hurry and want the
-   fastest path, full stop.
-2. **Route through points of interest** — same trip, but you want the route
-   to favor passing good restaurants, gas stations, or hotels along the way,
-   not just the shortest line between two points.
+## Why this doesn't already exist
 
-Neither of these is something a generic Directions API can do — "prefer
-scenery" or "pass through good food" isn't a knob Google or Apple expose.
-Answering them means owning the routing cost function, not just calling one.
+"Prefer scenery" isn't a button Google or Apple give you, and you can't ask
+for it through their APIs either. To offer it you have to own the thing that
+decides which road is better, not just call someone else's.
 
-## Why this is buildable (and why it doesn't exist yet)
+That's doable now because the pieces are free and open:
 
-The closest thing on the market is [Porsche
-ROADS](https://roads.porsche.com/en/porsche-roads-scenic-route-planner), a
-commercial scenic-route planner — which validates the idea, but it's
-closed-source and not Arizona/POI-focused. Nothing open-source does this
-specific combination.
+- **[OpenStreetMap](https://www.openstreetmap.org/)** already knows where
+  Arizona's official scenic roads are, plus every park, forest and river.
+- **[OSRM](https://project-osrm.org/)**, an open routing engine, lets you
+  score roads yourself and route on your own scoring.
+- **[Oracle's free tier](https://www.oracle.com/cloud/free/)** can host it,
+  permanently, for nothing.
 
-It's buildable because the pieces exist as open infrastructure:
+The nearest thing that exists is [Porsche
+ROADS](https://roads.porsche.com/en/porsche-roads-scenic-route-planner), which
+is closed-source and not about Arizona. Nothing open does this.
 
-- **[OpenStreetMap](https://www.openstreetmap.org/)** already has Arizona's
-  official Scenic Byways tagged, plus parks/water/POI data — no data
-  collection needed to start.
-- **[OSRM](https://project-osrm.org/)** (open-source routing engine) lets a
-  Lua profile set a custom weight per road from any tag, separately from the
-  reported travel time — this is exactly where "prefer scenic roads" becomes a
-  real, tunable cost function instead of a fake alternate-route hack.
-- Self-hostable for free on **Oracle Cloud's Always Free tier** (not a
-  trial — genuinely free forever), which is plenty of RAM for an
-  Arizona-only OSM extract.
+## What works today
 
-## Plan
+**Pick one of the listed trips and you get real scenic routing.** The map draws
+both ways at once — the one you chose in colour, the other as a dashed line —
+so you can see the difference rather than remember it. The ground is
+shaded, so you can see the mountains the long way climbs over and understand
+why it takes twice as long.
 
-**Phase 0 (done):** app shell, map, route search UI.
+Those routes are worked out in advance and shipped with the site as a file, so
+the demo needs no server and can't go down.
 
-**Phase 1 (done):** real point-to-point routing, end-to-end, with no API key
-or signup required — [Nominatim](https://nominatim.org/) for geocoding and
-the [OSRM](https://project-osrm.org/) demo server for directions, both
-proxied through this app's own API routes (keeps us off CORS and lets us set
-the User-Agent Nominatim's usage policy asks for).
+**Type your own two places and you get the fastest route only.** That's the
+public routing service, which only knows about speed. The app says which one
+you're getting rather than blurring it.
 
-Caveats worth knowing, since they're what the rest of Phase 2 exists to fix:
+## What's left
 
-- The OSRM demo server has no uptime guarantee and only optimizes for speed.
-- **Scenic routing is real, but only on the listed trips.** Those routes are
-  computed by the pipeline and shipped with the site (see stage 9), so they
-  need no server. Type your own two places and you still get the public
-  demo server, which ranks by time alone — the UI says which you are getting
-  rather than implying the toggle does the same thing in both cases.
-- Geocoding is restricted to an Arizona bounding box, so an out-of-state
-  search can fuzzy-match something odd inside the state ("Boston, MA" finds
-  "Boston Tank, Mohave County"). The app shows what it actually matched so
-  that's visible rather than silently wrong.
+One thing: a routing server, so scenic routing works for anywhere you type
+rather than the five trips listed. Everything it needs is already built — the
+scored map of the state, the routing rules, and a test proving the scoring
+actually changes which road you're sent down. What's missing is standing the
+server up.
 
-**Phase 2 (in progress):** self-host OSRM on an Arizona OSM extract,
-with a precomputed attribute table per road segment (proximity to Scenic
-Byways, parks, water, elevation change) feeding its custom costing model.
-This is the actual differentiator — everything before this phase is table
-stakes. See [Data pipeline](#data-pipeline) below.
+## Running it
 
-**Phase 3:** POI-aware routing — given a computed route, surface
-restaurants/hotels/gas stations within a small detour-time buffer of the
-corridor, and let the user insert one as a waypoint.
+```bash
+npm install
+npm run dev
+```
 
-## Data pipeline
+Then open <http://localhost:3000>. No API key, no signup, nothing to
+configure — every service this uses is free and keyless.
+
+## How it decides what's scenic
+
+Every drivable road in Arizona — all 931,043 of them — gets a score out of ten
+for how nice it is. The score comes from four things: how close the road runs
+to woodland, to protected wilderness, to water, and to parks.
+
+Those scores aren't guesses. They're checked against the roads Arizona has
+already declared scenic, and the check is part of the pipeline. If designated
+scenic roads didn't score well, the scoring would be wrong, and the build says
+so.
+
+Some of what that check found was surprising, and is written up below.
+
+## Things that turned out to be true about Arizona
+
+**Most "streams" here are dry.** Arizona records thousands of desert washes as
+streams. They're sand for most of the year. Counting them as water put more
+than half the state within a short walk of some, which is no use to anyone.
+
+**National forests aren't recorded as forest.** They're recorded as protected
+land. So all of Arizona's trees were being filed under "parks", and the state
+looked six per cent wooded when it's nearer a quarter.
+
+**Parks measure cities, not beauty.** Across the state, being near a park just
+means being in a town — city streets score best on it and the scenic byways
+score worst. Weighted as a good thing, "scenic" would have driven you into
+Phoenix. It's now only used inside cities, where there's no forest to prefer
+instead, and it can never beat a country road.
+
+None of these showed up as errors. The pipeline ran clean and produced
+confident, sensible-looking numbers that were wrong. It took knowing something
+about Arizona to spot them.
+
+## How the map gets scored
+
+*The rest of this is the engineering detail — how the scoring is built and
+checked. Stop here if you just wanted to know what it does.*
 
 Offline tooling in `pipeline/`. It never ships with the app — it produces the
 data the routing engine is built from. Each stage is separately runnable and
@@ -96,7 +118,7 @@ writes a stamped artifact, so a route can be traced back to the data behind it.
 Stage 7 cuts the Phoenix→Sedona corridor out of the tagged extract, 301 MB down
 to 44 MB, which is what makes stages 8 and 9 runnable on a laptop.
 
-### Routing engine: OSRM, not Valhalla
+### Why OSRM and not Valhalla
 
 The plan called for Valhalla. Research says that was the wrong pick for this
 job. Valhalla evaluates costing against edge attributes **baked into its tiles**
@@ -169,7 +191,7 @@ Run the same three steps with `-p /opt/car.lua` into a second directory to get
 the `fastest` engine. Two graphs, one scenic and one plain, is simpler than one
 graph trying to serve both.
 
-### What the scenic signals are actually worth
+### Which signals actually mean anything
 
 Stage 5 measures each signal against ground truth: roads Arizona has officially
 designated as scenic should score better than ordinary roads. Gap is in 200 m
@@ -217,7 +239,7 @@ list of 28 things. Everything else comes from the extract — parks, water and
 woodland are all in the same file as the roads, so querying a free shared
 server for them would be both wasteful and rude.
 
-### What's actually in the extract
+### What's in the map data
 
 Measured by a full pass over the file (65s), and it's what stage 3 is sized for:
 
@@ -289,30 +311,3 @@ while reporting the state as 5.8% wooded, against a true figure near a quarter.
   typed places, proxied via `/api/directions`
 - Terrain: open [elevation tiles](https://registry.opendata.aws/terrain-tiles/)
   on AWS Open Data, hillshaded by MapLibre (free, no key)
-
-## Getting started
-
-```bash
-npm install
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000).
-
-## Status
-
-**Scenic routing works.** Pick one of the listed trips and the map draws both
-the fast way and the pretty way, with the one you are not looking at left on
-as a dashed line. Phoenix → Sedona comes back as the Beeline over the Mogollon
-Rim and down into Sedona on the Red Rock byway: 179 mi and 4h03, against the
-interstate's 115 mi and 2h07. The map is terrain-shaded, so the reason for the
-detour is visible rather than merely asserted.
-
-Those routes are precomputed by the pipeline and shipped as a file, which is
-why the demo needs no routing server and cannot go down. Typing your own two
-places still works and still returns the fastest route from the public server.
-
-What is left is the server that would make scenic routing work for any two
-places rather than the listed five. Everything it needs is built — the scored
-map, the routing profile, and a check proving the weighting changes the road
-taken — and the remaining step is standing OSRM up on the tagged extract.
