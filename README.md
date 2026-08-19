@@ -9,9 +9,10 @@ good restaurant along the way, whatever the trip calls for.
 
 ## The two scenarios this exists for
 
-1. **Scenic vs. fastest** — going from Tempe to Gilbert, you have time to
-   spare and would rather see something on the way, even if it takes longer.
-   Or the opposite: you're in a hurry and want the fastest path, full stop.
+1. **Scenic vs. fastest** — driving Phoenix to Sedona, you have the day free
+   and would rather go over the Mogollon Rim than up the interstate, even
+   though it costs two hours. Or the opposite: you're in a hurry and want the
+   fastest path, full stop.
 2. **Route through points of interest** — same trip, but you want the route
    to favor passing good restaurants, gas stations, or hotels along the way,
    not just the shortest line between two points.
@@ -51,12 +52,14 @@ the [OSRM](https://project-osrm.org/) demo server for directions, both
 proxied through this app's own API routes (keeps us off CORS and lets us set
 the User-Agent Nominatim's usage policy asks for).
 
-Caveats worth knowing, since they're what Phase 2 exists to fix:
+Caveats worth knowing, since they're what the rest of Phase 2 exists to fix:
 
 - The OSRM demo server has no uptime guarantee and only optimizes for speed.
-- The "scenic" toggle is a **placeholder**. OSRM only ranks by travel time,
-  so scenic currently just picks its second alternative, which is usually
-  barely different. The UI says so rather than pretending otherwise.
+- **Scenic routing is real, but only on the listed trips.** Those routes are
+  computed by the pipeline and shipped with the site (see stage 9), so they
+  need no server. Type your own two places and you still get the public
+  demo server, which ranks by time alone — the UI says which you are getting
+  rather than implying the toggle does the same thing in both cases.
 - Geocoding is restricted to an Arizona bounding box, so an out-of-state
   search can fuzzy-match something odd inside the state ("Boston, MA" finds
   "Boston Tank, Mohave County"). The app shows what it actually matched so
@@ -86,6 +89,12 @@ writes a stamped artifact, so a route can be traced back to the data behind it.
 | 4. Attribute table | `python pipeline/build-attributes.py` | `pipeline/data/attributes.csv.gz` (gitignored) |
 | 5. Validation | `python pipeline/validate.py` | `pipeline/data/validation.json` |
 | 6. Tag the extract | `python pipeline/tag-pbf.py` | `pipeline/extract/arizona-scenic.osm.pbf` (gitignored) |
+| 7. Cut a test region | `python pipeline/extract-region.py` | `pipeline/extract/corridor-scenic.osm.pbf` (gitignored) |
+| 8. Check it changes the road | `python pipeline/check-routing.py` | pass/fail on both trips |
+| 9. Precompute the demo | `python pipeline/make-demo-routes.py` | `public/demo-routes.json` |
+
+Stage 7 cuts the Phoenix→Sedona corridor out of the tagged extract, 301 MB down
+to 44 MB, which is what makes stages 8 and 9 runnable on a laptop.
 
 ### Routing engine: OSRM, not Valhalla
 
@@ -128,7 +137,7 @@ that bound converges on the **ratio of the two scores**. So past a point, more
 | 8–20 | identical to 5 — saturated |
 
 At 5 it picks the drive an Arizonan would name: the Beeline over the Rim, all
-paved. 4h05 against 2h07, and because OSRM keeps `duration` separate from
+paved. 4h03 against 2h07, and because OSRM keeps `duration` separate from
 `weight`, the app reports that honestly rather than pretending it's quick.
 
 **Cost must be travel time, not distance.** Weighting by distance alone made a
@@ -275,9 +284,11 @@ while reporting the state as 5.8% wooded, against a true figure near a quarter.
   full control
 - Geocoding: [Nominatim](https://nominatim.org/) (free, no key), proxied via
   `/api/geocode`
-- Routing: [OSRM](https://project-osrm.org/) demo server (free, no key),
-  proxied via `/api/directions` → self-hosted OSRM with a scenic profile in
-  Phase 2
+- Routing: precomputed scenic routes for the listed trips (see the pipeline),
+  plus the [OSRM](https://project-osrm.org/) demo server (free, no key) for
+  typed places, proxied via `/api/directions`
+- Terrain: open [elevation tiles](https://registry.opendata.aws/terrain-tiles/)
+  on AWS Open Data, hillshaded by MapLibre (free, no key)
 
 ## Getting started
 
@@ -290,7 +301,18 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Status
 
-Working end-to-end for real point-to-point routing: enter two Arizona
-places, get an actual driving route drawn on the map with distance and
-time. The scenic option is still a placeholder — that's Phase 2, and it's
-the part that makes this project worth building.
+**Scenic routing works.** Pick one of the listed trips and the map draws both
+the fast way and the pretty way, with the one you are not looking at left on
+as a dashed line. Phoenix → Sedona comes back as the Beeline over the Mogollon
+Rim and down into Sedona on the Red Rock byway: 179 mi and 4h03, against the
+interstate's 115 mi and 2h07. The map is terrain-shaded, so the reason for the
+detour is visible rather than merely asserted.
+
+Those routes are precomputed by the pipeline and shipped as a file, which is
+why the demo needs no routing server and cannot go down. Typing your own two
+places still works and still returns the fastest route from the public server.
+
+What is left is the server that would make scenic routing work for any two
+places rather than the listed five. Everything it needs is built — the scored
+map, the routing profile, and a check proving the weighting changes the road
+taken — and the remaining step is standing OSRM up on the tagged extract.
