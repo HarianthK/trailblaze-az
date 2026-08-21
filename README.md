@@ -36,8 +36,14 @@ so you can see the difference rather than remember it. The ground is
 shaded, so you can see the mountains the long way climbs over and understand
 why it takes twice as long.
 
-Those routes are worked out in advance and shipped with the site as a file, so
-the demo needs no server and can't go down.
+**It also shows you where to stop.** Viewpoints, places to eat and filling
+stations within about a mile of the road, picked one per stretch of the drive
+so the list is somewhere to break the journey rather than six restaurants on
+the street you set off from. Viewpoints get named on the map, because on a
+scenic drive that is the whole point.
+
+The routes and the stops are both worked out in advance and shipped with the
+site as a file, so the demo needs no server and can't go down.
 
 **Type your own two places and you get the fastest route only.** That's the
 public routing service, which only knows about speed. The app says which one
@@ -114,6 +120,7 @@ writes a stamped artifact, so a route can be traced back to the data behind it.
 | 7. Cut a test region | `python pipeline/extract-region.py` | `pipeline/extract/corridor-scenic.osm.pbf` (gitignored) |
 | 8. Check it changes the road | `python pipeline/check-routing.py` | pass/fail on both trips |
 | 9. Precompute the demo | `python pipeline/make-demo-routes.py` | `public/demo-routes.json` |
+| 10. Find stops along them | `python pipeline/fetch-pois.py` | adds `stops` to the same file |
 
 Stage 7 cuts the Phoenix→Sedona corridor out of the tagged extract, 301 MB down
 to 44 MB, which is what makes stages 8 and 9 runnable on a laptop.
