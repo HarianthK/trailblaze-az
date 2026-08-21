@@ -60,7 +60,7 @@ function fitPadding() {
 
 // Matches the panel's palette in app/globals.css.
 const SCENIC = "#e08a3c"
-const FASTEST = "#6b8cae"
+const FASTEST = "#4d94d6"
 
 function emptyLine(coordinates: RouteResult["coordinates"]) {
   return {

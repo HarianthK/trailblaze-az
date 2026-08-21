@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
+import { ElevationProfile } from "@/components/elevation-profile"
 import { ApiError, fetchRoutes, geocode } from "@/lib/api"
 import type { DemoTrip, RoutePreference, RouteResult, Stop } from "@/lib/types"
 
@@ -314,6 +315,17 @@ export function RouteForm({ onRouteChange }: Props) {
                   </p>
                 )}
               </>
+            )}
+
+            {activeTrip?.scenic.profile && activeTrip?.fastest.profile && (
+              <div className="mt-1 border-t border-white/[0.07] pt-3">
+                <ElevationProfile
+                  scenic={activeTrip.scenic.profile}
+                  fastest={activeTrip.fastest.profile}
+                  isScenic={scenicActive}
+                  distanceMeters={result.distanceMeters}
+                />
+              </div>
             )}
 
             {scenicActive && (activeTrip?.stops?.length ?? 0) > 0 && (

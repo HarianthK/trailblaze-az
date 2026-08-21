@@ -16,12 +16,23 @@ export type Stop = {
   alongM: number
 }
 
+// Height along the route, evenly spaced from start to finish. `ascentM` is the
+// total climb, which is what actually explains a longer drive.
+export type Profile = {
+  elevM: number[]
+  ascentM: number
+  minM: number
+  maxM: number
+}
+
+type Priced = RouteResult & { scenicScore: number; profile?: Profile }
+
 export type DemoTrip = {
   key: string
   from: string
   to: string
-  fastest: RouteResult & { scenicScore: number }
-  scenic: RouteResult & { scenicScore: number }
+  fastest: Priced
+  scenic: Priced
   stops?: Stop[]
 }
 

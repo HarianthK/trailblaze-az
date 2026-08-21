@@ -36,6 +36,11 @@ so you can see the difference rather than remember it. The ground is
 shaded, so you can see the mountains the long way climbs over and understand
 why it takes twice as long.
 
+**And it shows you the climb.** A height profile under the route, drawn from
+the same elevation data the map is shaded with. Phoenix to Sedona climbs 3,420 m
+the pretty way against 1,782 m up the interstate, which is the real answer to
+why one takes twice as long.
+
 **It also shows you where to stop.** Viewpoints, places to eat and filling
 stations within about a mile of the road, picked one per stretch of the drive
 so the list is somewhere to break the journey rather than six restaurants on
@@ -121,6 +126,7 @@ writes a stamped artifact, so a route can be traced back to the data behind it.
 | 8. Check it changes the road | `python pipeline/check-routing.py` | pass/fail on both trips |
 | 9. Precompute the demo | `python pipeline/make-demo-routes.py` | `public/demo-routes.json` |
 | 10. Find stops along them | `python pipeline/fetch-pois.py` | adds `stops` to the same file |
+| 11. Height profiles | `python pipeline/fetch-elevation.py` | adds `profile` to each route |
 
 Stage 7 cuts the Phoenix→Sedona corridor out of the tagged extract, 301 MB down
 to 44 MB, which is what makes stages 8 and 9 runnable on a laptop.
