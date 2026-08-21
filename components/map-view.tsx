@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 import * as maplibregl from "maplibre-gl"
 import "maplibre-gl/dist/maplibre-gl.css"
-import type { RouteResult } from "@/lib/types"
+import type { RouteResult, Stop } from "@/lib/types"
 
 // NOTE: pinned to maplibre-gl v5 — on v6.1.0 the map never finishes loading
 // (`load` never fires, isStyleLoaded() stays false, canvas renders only the
@@ -28,6 +28,18 @@ const ROUTE_LINE_LAYER = "route-line"
 // between fastest and scenic is visible at a glance rather than by toggling.
 const COMPARE_SOURCE = "route-compare"
 const COMPARE_LAYER = "route-compare-line"
+
+const STOPS_SOURCE = "stops"
+const STOPS_LAYER = "stops-dots"
+const STOPS_LABEL_LAYER = "stops-labels"
+
+// Viewpoints are the point of a scenic drive, so they get the route's own
+// colour. Food and fuel are practical, and stay out of the way.
+const STOP_COLOURS: Record<string, string> = {
+  viewpoint: "#e08a3c",
+  food: "#c8cdd4",
+  fuel: "#8b9199",
+}
 
 // Free elevation tiles on AWS Open Data — no key, no limit, same as the map.
 const DEM_SOURCE = "terrain-dem"
@@ -58,14 +70,38 @@ function emptyLine(coordinates: RouteResult["coordinates"]) {
   }
 }
 
+// Borrows the font the style's own labels use, so the glyphs are known to exist.
+function styleFont(map: maplibregl.Map): string[] {
+  for (const layer of map.getStyle().layers ?? []) {
+    if (layer.type === "symbol") {
+      const font = layer.layout?.["text-font"]
+      if (Array.isArray(font) && typeof font[0] === "string") return font as string[]
+    }
+  }
+  return ["Noto Sans Regular"]
+}
+
+function stopsCollection(stops: Stop[]) {
+  return {
+    type: "FeatureCollection" as const,
+    features: stops.map((stop) => ({
+      type: "Feature" as const,
+      properties: { name: stop.name, kind: stop.kind },
+      geometry: { type: "Point" as const, coordinates: stop.coord },
+    })),
+  }
+}
+
 export function MapView({
   route,
   compare = null,
   isScenic = false,
+  stops = [],
 }: {
   route: RouteResult | null
   compare?: RouteResult | null
   isScenic?: boolean
+  stops?: Stop[]
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
@@ -250,6 +286,55 @@ export function MapView({
       map.setPaintProperty(ROUTE_CASING_LAYER, "line-color", isScenic ? SCENIC : FASTEST)
     }
 
+    // Stops go on last so they sit above the route line.
+    const stopSource = map.getSource(STOPS_SOURCE) as maplibregl.GeoJSONSource | undefined
+    if (stopSource) {
+      stopSource.setData(stopsCollection(stops))
+    } else {
+      map.addSource(STOPS_SOURCE, { type: "geojson", data: stopsCollection(stops) })
+      map.addLayer({
+        id: STOPS_LAYER,
+        type: "circle",
+        source: STOPS_SOURCE,
+        paint: {
+          "circle-radius": ["case", ["==", ["get", "kind"], "viewpoint"], 6, 4],
+          "circle-color": [
+            "match",
+            ["get", "kind"],
+            "viewpoint", STOP_COLOURS.viewpoint,
+            "food", STOP_COLOURS.food,
+            STOP_COLOURS.fuel,
+          ],
+          "circle-stroke-width": 1.5,
+          "circle-stroke-color": "#0b0f14",
+        },
+      })
+      // Only viewpoints get a name on the map. Labelling every filling station
+      // would bury the route under text.
+      map.addLayer({
+        id: STOPS_LABEL_LAYER,
+        type: "symbol",
+        source: STOPS_SOURCE,
+        filter: ["==", ["get", "kind"], "viewpoint"],
+        layout: {
+          "text-field": ["get", "name"],
+          // Whatever the basemap already labels with. Left to default, MapLibre
+          // asks for Open Sans, which this style does not host — a 404 for
+          // every glyph range and no text on the map.
+          "text-font": styleFont(map),
+          "text-size": 11,
+          "text-offset": [0, 1.1],
+          "text-anchor": "top",
+          "text-max-width": 9,
+        },
+        paint: {
+          "text-color": STOP_COLOURS.viewpoint,
+          "text-halo-color": "#0b0f14",
+          "text-halo-width": 1.6,
+        },
+      })
+    }
+
     if (coordinates.length === 0) return
 
     // Framed around both routes, or the scenic detour falls off the screen.
@@ -295,7 +380,7 @@ export function MapView({
     }
     frame = requestAnimationFrame(step)
     return () => cancelAnimationFrame(frame)
-  }, [route, compare, isScenic, styleReady])
+  }, [route, compare, isScenic, stops, styleReady])
 
   // Inline style, not a Tailwind class: MapLibre's own CSS sets `position:
   // relative` on this element (it needs that for its internal controls/canvas

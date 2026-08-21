@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { ApiError, fetchRoutes, geocode } from "@/lib/api"
-import type { DemoTrip, RoutePreference, RouteResult } from "@/lib/types"
+import type { DemoTrip, RoutePreference, RouteResult, Stop } from "@/lib/types"
 
 function formatDistance(meters: number) {
   return `${(meters * 0.000621371).toFixed(1)} mi`
@@ -27,11 +27,33 @@ function formatGap(scenic: RouteResult, fastest: RouteResult) {
   return `${formatDuration(extraMinutes * 60)} longer · +${extraMiles} mi`
 }
 
+
+// Six stops spread across the drive, not the six nearest the start. Sorting by
+// distance along the route and taking the first few returns a list of places
+// within a mile of your own front door, which is no use to anyone.
+function spreadStops(stops: Stop[], want = 6) {
+  if (stops.length <= want) return stops
+  const end = stops[stops.length - 1].alongM || 1
+  const chosen: Stop[] = []
+
+  for (let band = 0; band < want; band++) {
+    const from = (end * band) / want
+    const to = (end * (band + 1)) / want
+    const inBand = stops.filter((s) => s.alongM >= from && s.alongM < to && !chosen.includes(s))
+    if (!inBand.length) continue
+    // A marked viewpoint beats a filling station on a scenic drive.
+    const viewpoint = inBand.find((s) => s.kind === "viewpoint")
+    chosen.push(viewpoint ?? inBand.sort((a, b) => a.detourM - b.detourM)[0])
+  }
+  return chosen
+}
+
 type Props = {
   onRouteChange: (
     route: RouteResult | null,
     compare?: RouteResult | null,
     preference?: RoutePreference,
+    stops?: Stop[],
   ) => void
 }
 
@@ -67,6 +89,8 @@ export function RouteForm({ onRouteChange }: Props) {
       activeTrip[preference],
       activeTrip[preference === "scenic" ? "fastest" : "scenic"],
       preference,
+      // Stops were found along the scenic line, so they only make sense there.
+      preference === "scenic" ? (activeTrip.stops ?? []) : [],
     )
   }, [activeTrip, preference, onRouteChange])
 
@@ -94,7 +118,7 @@ export function RouteForm({ onRouteChange }: Props) {
       setUsedAlternative(wantsAlternative)
       setMatched({ from: origin.label, to: destination.label })
       setSearchResult(chosen)
-      onRouteChange(chosen, null, preference)
+      onRouteChange(chosen, null, preference, [])
     } catch (caught) {
       const message =
         caught instanceof ApiError
@@ -103,7 +127,7 @@ export function RouteForm({ onRouteChange }: Props) {
       setError(message)
       setSearchResult(null)
       setMatched(null)
-      onRouteChange(null, null, preference)
+      onRouteChange(null, null, preference, [])
     } finally {
       setLoading(false)
     }
@@ -290,6 +314,39 @@ export function RouteForm({ onRouteChange }: Props) {
                   </p>
                 )}
               </>
+            )}
+
+            {scenicActive && (activeTrip?.stops?.length ?? 0) > 0 && (
+              <div className="mt-1 flex flex-col gap-1.5 border-t border-white/[0.07] pt-3">
+                <span className="text-[0.65rem] font-medium uppercase tracking-[0.14em] text-muted">
+                  Worth stopping for
+                </span>
+                <ul className="flex flex-col gap-1">
+                  {spreadStops(activeTrip?.stops ?? []).map((stop) => (
+                    <li key={`${stop.name}-${stop.alongM}`} className="flex items-baseline gap-2">
+                      <span
+                        aria-hidden
+                        className={`size-1.5 shrink-0 translate-y-[-1px] rounded-full ${
+                          stop.kind === "viewpoint"
+                            ? "bg-scenic"
+                            : stop.kind === "food"
+                              ? "bg-[#c8cdd4]"
+                              : "bg-muted"
+                        }`}
+                      />
+                      <span className="flex-1 truncate text-[0.7rem] text-foreground">{stop.name}</span>
+                      <span className="tnum shrink-0 text-[0.65rem] text-muted">
+                        {(stop.alongM * 0.000621371).toFixed(0)} mi
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                {(activeTrip?.stops?.length ?? 0) > 6 && (
+                  <span className="text-[0.65rem] text-muted">
+                    {activeTrip?.stops?.length} marked on the map
+                  </span>
+                )}
+              </div>
             )}
           </motion.div>
         )}
