@@ -119,3 +119,20 @@ body {
     max-width: 70vw;
   }
 }
+
+/* The panel scrolls when a route fills it with numbers. A default scrollbar is
+   the widest, brightest thing on a dark panel, so it is thinned to a hairline. */
+.panel {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--line) / 0.18) transparent;
+}
+.panel::-webkit-scrollbar {
+  width: 6px;
+}
+.panel::-webkit-scrollbar-thumb {
+  background: rgb(var(--line) / 0.18);
+  border-radius: 3px;
+}
+.panel::-webkit-scrollbar-track {
+  background: transparent;
+}

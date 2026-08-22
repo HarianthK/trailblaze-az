@@ -36,6 +36,12 @@ so you can see the difference rather than remember it. The ground is
 shaded, so you can see the mountains the long way climbs over and understand
 why it takes twice as long.
 
+**And it tells you when to leave.** The route, the driving time and the
+viewpoints are all known, so the app can work backwards from sunset: leave
+Phoenix at 2:35 pm and you reach the Airport Mesa viewpoint in golden hour.
+Sun position is arithmetic rather than a service, so this needs no key and is
+always today's date.
+
 **And it shows you the climb.** A height profile under the route, drawn from
 the same elevation data the map is shaded with. Phoenix to Sedona climbs 3,420 m
 the pretty way against 1,782 m up the interstate, which is the real answer to
