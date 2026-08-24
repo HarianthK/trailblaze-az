@@ -14,8 +14,13 @@ type Props = {
 // Falling back to the destination keeps the advice useful on a drive that has
 // no marked viewpoint, which is most of them.
 function target(route: RouteResult, stops: Stop[]) {
-  const viewpoints = stops.filter((s) => s.kind === "viewpoint")
-  const last = viewpoints[viewpoints.length - 1]
+  // Only a viewpoint in the back half of the drive is worth timing for. On
+  // Phoenix to Jerome the sole viewpoint sits eight miles in, and aiming for
+  // golden hour there means setting off at dusk with 168 miles still to go.
+  const late = stops.filter(
+    (s) => s.kind === "viewpoint" && s.alongM > route.distanceMeters * 0.5,
+  )
+  const last = late[late.length - 1]
   if (last) return { name: last.name, coord: last.coord, alongM: last.alongM }
 
   const end = route.coordinates[route.coordinates.length - 1]

@@ -76,7 +76,19 @@ export function RouteForm({ onRouteChange }: Props) {
   useEffect(() => {
     fetch("/demo-routes.json")
       .then((r) => (r.ok ? r.json() : []))
-      .then(setTrips)
+      .then((loaded: DemoTrip[]) => {
+        setTrips(loaded)
+
+        // A shared link names a trip. Applied here rather than in its own
+        // effect, which would mean setting state synchronously inside one.
+        const params = new URLSearchParams(window.location.search)
+        const shared = loaded.find((t) => t.key === params.get("trip"))
+        if (!shared) return
+        setActiveTrip(shared)
+        setFrom(`${shared.from}, AZ`)
+        setTo(`${shared.to}, AZ`)
+        if (params.get("way") === "scenic") setPreference("scenic")
+      })
       .catch(() => setTrips([]))
   }, [])
 
@@ -88,6 +100,11 @@ export function RouteForm({ onRouteChange }: Props) {
   // the map which of the two routes is now in front.
   useEffect(() => {
     if (!activeTrip) return
+    const url = new URL(window.location.href)
+    url.searchParams.set("trip", activeTrip.key)
+    url.searchParams.set("way", preference)
+    window.history.replaceState(null, "", url)
+
     onRouteChange(
       activeTrip[preference],
       activeTrip[preference === "scenic" ? "fastest" : "scenic"],

@@ -17,8 +17,10 @@ function hhmm(seconds: number) {
   return m === 0 ? `${h} hr` : `${h} hr ${m} min`
 }
 
-function lastViewpoint(stops: Stop[]) {
-  const views = stops.filter((s) => s.kind === "viewpoint")
+// Same rule as the golden hour advice: only a viewpoint near the end of the
+// drive is the one you would linger at before turning for home.
+function lastViewpoint(stops: Stop[], distanceM: number) {
+  const views = stops.filter((s) => s.kind === "viewpoint" && s.alongM > distanceM * 0.5)
   return views[views.length - 1] ?? null
 }
 
@@ -41,7 +43,7 @@ export function DayTrip({ trip }: { trip: DemoTrip }) {
 
   // Where the two features collide. Arriving for the best light means the drive
   // home starts after sunset, on the mountain road. Better said than not.
-  const view = lastViewpoint(trip.stops ?? [])
+  const view = lastViewpoint(trip.stops ?? [], out.distanceMeters)
   const spot = view ? view.coord : out.coordinates[out.coordinates.length - 1]
   const sun = sunTimes(now, spot[1], spot[0])
   const darkDrive =
