@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import { AnimatePresence, motion } from "motion/react"
 import { ElevationProfile } from "@/components/elevation-profile"
+import { DayTrip } from "@/components/day-trip"
 import { GoldenHour } from "@/components/golden-hour"
 import { ApiError, fetchRoutes, geocode } from "@/lib/api"
 import type { DemoTrip, RoutePreference, RouteResult, Stop } from "@/lib/types"
@@ -293,7 +294,7 @@ export function RouteForm({ onRouteChange }: Props) {
                 {scenicActive ? (
                   <>
                     <span className="text-scenic">Scenic</span> — {formatGap(activeTrip.scenic, activeTrip.fastest)}.
-                    The fast way is dashed.
+                    The dashed line is the way back.
                   </>
                 ) : (
                   <>Fastest way. Switch to scenic for the drive worth taking.</>
@@ -328,6 +329,8 @@ export function RouteForm({ onRouteChange }: Props) {
                 />
               </div>
             )}
+
+            {scenicActive && activeTrip && <DayTrip trip={activeTrip} />}
 
             {scenicActive && activeTrip && (
               <GoldenHour route={activeTrip.scenic} stops={activeTrip.stops ?? []} to={activeTrip.to} />
