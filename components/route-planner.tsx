@@ -15,6 +15,7 @@ export function RoutePlanner() {
   const [compare, setCompare] = useState<RouteResult | null>(null)
   const [preference, setPreference] = useState<RoutePreference>("fastest")
   const [stops, setStops] = useState<Stop[]>([])
+  const [focus, setFocus] = useState<Stop | null>(null)
 
   // Stable, because the form calls it from an effect — a fresh function each
   // render would make that effect loop.
@@ -29,16 +30,23 @@ export function RoutePlanner() {
       setCompare(other)
       setPreference(pref)
       setStops(nextStops)
+      setFocus(null)
     },
     [],
   )
 
   return (
     <div className="relative flex-1">
-      <MapView route={route} compare={compare} isScenic={preference === "scenic"} stops={stops} />
+      <MapView
+        route={route}
+        compare={compare}
+        isScenic={preference === "scenic"}
+        stops={stops}
+        focus={focus}
+      />
       {/* Bottom sheet on a phone, floating card on a desktop. */}
       <div className="pointer-events-none absolute inset-0 flex items-end justify-center p-3 sm:items-start sm:justify-start sm:p-6">
-        <RouteForm onRouteChange={handleRouteChange} />
+        <RouteForm onRouteChange={handleRouteChange} onFocusStop={setFocus} />
       </div>
     </div>
   )

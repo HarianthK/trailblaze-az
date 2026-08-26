@@ -58,9 +58,10 @@ type Props = {
     preference?: RoutePreference,
     stops?: Stop[],
   ) => void
+  onFocusStop: (stop: Stop | null) => void
 }
 
-export function RouteForm({ onRouteChange }: Props) {
+export function RouteForm({ onRouteChange, onFocusStop }: Props) {
   const [trips, setTrips] = useState<DemoTrip[]>([])
   const [activeTrip, setActiveTrip] = useState<DemoTrip | null>(null)
   const [from, setFrom] = useState("Tempe, AZ")
@@ -360,21 +361,27 @@ export function RouteForm({ onRouteChange }: Props) {
                 </span>
                 <ul className="flex flex-col gap-1">
                   {spreadStops(activeTrip?.stops ?? []).map((stop) => (
-                    <li key={`${stop.name}-${stop.alongM}`} className="flex items-baseline gap-2">
-                      <span
-                        aria-hidden
-                        className={`size-1.5 shrink-0 translate-y-[-1px] rounded-full ${
-                          stop.kind === "viewpoint"
-                            ? "bg-scenic"
-                            : stop.kind === "food"
-                              ? "bg-[#c8cdd4]"
-                              : "bg-muted"
-                        }`}
-                      />
-                      <span className="flex-1 truncate text-[0.7rem] text-foreground">{stop.name}</span>
-                      <span className="tnum shrink-0 text-[0.65rem] text-muted">
-                        {(stop.alongM * 0.000621371).toFixed(0)} mi
-                      </span>
+                    <li key={`${stop.name}-${stop.alongM}`}>
+                      <button
+                        type="button"
+                        onClick={() => onFocusStop(stop)}
+                        className="flex w-full items-baseline gap-2 rounded px-1 py-0.5 text-left transition-colors hover:bg-white/[0.05]"
+                      >
+                        <span
+                          aria-hidden
+                          className={`size-1.5 shrink-0 translate-y-[-1px] rounded-full ${
+                            stop.kind === "viewpoint"
+                              ? "bg-scenic"
+                              : stop.kind === "food"
+                                ? "bg-[#c8cdd4]"
+                                : "bg-muted"
+                          }`}
+                        />
+                        <span className="flex-1 truncate text-[0.7rem] text-foreground">{stop.name}</span>
+                        <span className="tnum shrink-0 text-[0.65rem] text-muted">
+                          {(stop.alongM * 0.000621371).toFixed(0)} mi
+                        </span>
+                      </button>
                     </li>
                   ))}
                 </ul>

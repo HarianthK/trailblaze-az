@@ -97,11 +97,13 @@ export function MapView({
   compare = null,
   isScenic = false,
   stops = [],
+  focus = null,
 }: {
   route: RouteResult | null
   compare?: RouteResult | null
   isScenic?: boolean
   stops?: Stop[]
+  focus?: Stop | null
 }) {
   const containerRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
@@ -218,6 +220,14 @@ export function MapView({
       setStyleReady(false)
     }
   }, [])
+
+  // Flies to a stop picked from the list. Kept in its own effect so choosing a
+  // stop does not re-run the route drawing and replay its animation.
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map || !styleReady || !focus) return
+    map.flyTo({ center: focus.coord, zoom: 12.5, duration: 1100, essential: true })
+  }, [focus, styleReady])
 
   useEffect(() => {
     const map = mapRef.current
