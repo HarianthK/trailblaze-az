@@ -25,6 +25,12 @@ TRIPS = [
     ("phoenix-prescott", "Phoenix", (33.4484, -112.0740), "Prescott", (34.5400, -112.4685)),
     ("sedona-prescott", "Sedona", (34.8697, -111.7610), "Prescott", (34.5400, -112.4685)),
     ("tempe-gilbert", "Tempe", (33.4255, -111.9400), "Gilbert", (33.3528, -111.7890)),
+    # Shorter drives, and a couple that start somewhere other than Phoenix, so
+    # the list is not five variations on leaving the same car park.
+    ("phoenix-cottonwood", "Phoenix", (33.4484, -112.0740), "Cottonwood", (34.7392, -112.0093)),
+    ("phoenix-campverde", "Phoenix", (33.4484, -112.0740), "Camp Verde", (34.5637, -111.8543)),
+    ("scottsdale-payson", "Scottsdale", (33.4942, -111.9261), "Payson", (34.2308, -111.3251)),
+    ("prescott-jerome", "Prescott", (34.5400, -112.4685), "Jerome", (34.7489, -112.1135)),
 ]
 
 

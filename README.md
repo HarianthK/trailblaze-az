@@ -74,7 +74,7 @@ you're getting rather than blurring it.
 ## What's left
 
 One thing: a routing server, so scenic routing works for anywhere you type
-rather than the five trips listed. Everything it needs is already built — the
+rather than the nine trips listed. Everything it needs is already built — the
 scored map of the state, the routing rules, and a test proving the scoring
 actually changes which road you're sent down. What's missing is standing the
 server up.
@@ -147,6 +147,11 @@ writes a stamped artifact, so a route can be traced back to the data behind it.
 
 Stage 7 cuts the Phoenix→Sedona corridor out of the tagged extract, 301 MB down
 to 44 MB, which is what makes stages 8 and 9 runnable on a laptop.
+
+**Stages 9, 10 and 11 must run in that order.** Stage 9 writes
+`demo-routes.json` from scratch, so it drops the stops and height profiles;
+10 and 11 add them back. Running 9 alone leaves the site with routes and
+nothing else.
 
 ### Why OSRM and not Valhalla
 

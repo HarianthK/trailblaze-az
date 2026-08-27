@@ -1,6 +1,7 @@
 # Stage 10: find places worth stopping at along each demo route.
 # Run: python pipeline/fetch-pois.py
 
+import http.client
 import json
 import math
 import time
@@ -66,7 +67,11 @@ def overpass(query, label):
                 )
                 with urllib.request.urlopen(req, timeout=180) as resp:
                     return json.loads(resp.read().decode())
-            except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, json.JSONDecodeError) as err:
+            # A mirror hanging up mid-request raises RemoteDisconnected, which
+            # is not a URLError, so an earlier version of this list let it kill
+            # the run and lose every stop found so far. OSError covers the
+            # connection failures; HTTPException covers the protocol ones.
+            except (OSError, http.client.HTTPException, json.JSONDecodeError) as err:
                 last = str(err)
         if attempt < 3:
             wait = attempt * 15
