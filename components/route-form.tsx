@@ -72,6 +72,7 @@ export function RouteForm({ onRouteChange, onFocusStop }: Props) {
   const [searchResult, setSearchResult] = useState<RouteResult | null>(null)
   const [usedAlternative, setUsedAlternative] = useState(false)
   const [matched, setMatched] = useState<{ from: string; to: string } | null>(null)
+  const [showAllTrips, setShowAllTrips] = useState(false)
 
   // 300 KB of coordinates, so it is fetched once rather than bundled.
   useEffect(() => {
@@ -154,6 +155,20 @@ export function RouteForm({ onRouteChange, onFocusStop }: Props) {
     }
   }
 
+  // Nine trips took five rows and pushed the actual route details off the
+  // screen. Five is enough to show what kind of thing this is; the rest are one
+  // click away. The chosen trip is always among them, or a shared link would
+  // open with nothing looking selected.
+  const TRIPS_SHOWN = 5
+  const visibleTrips =
+    showAllTrips || trips.length <= TRIPS_SHOWN
+      ? trips
+      : (() => {
+          const head = trips.slice(0, TRIPS_SHOWN)
+          if (!activeTrip || head.some((t) => t.key === activeTrip.key)) return head
+          return [...head.slice(0, TRIPS_SHOWN - 1), activeTrip]
+        })()
+
   const scenicActive = preference === "scenic"
 
   return (
@@ -179,7 +194,7 @@ export function RouteForm({ onRouteChange, onFocusStop }: Props) {
             Try a route
           </span>
           <div className="flex flex-wrap gap-1.5">
-            {trips.map((trip) => {
+            {visibleTrips.map((trip) => {
               const active = activeTrip?.key === trip.key
               return (
                 <button
@@ -204,6 +219,15 @@ export function RouteForm({ onRouteChange, onFocusStop }: Props) {
                 </button>
               )
             })}
+            {trips.length > TRIPS_SHOWN && (
+              <button
+                type="button"
+                onClick={() => setShowAllTrips((v) => !v)}
+                className="rounded-full px-2.5 py-1 text-[0.7rem] text-muted underline-offset-2 transition-colors hover:text-foreground hover:underline"
+              >
+                {showAllTrips ? "fewer" : `+${trips.length - TRIPS_SHOWN} more`}
+              </button>
+            )}
           </div>
         </div>
       )}
