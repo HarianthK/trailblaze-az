@@ -6,6 +6,7 @@ import { ElevationProfile } from "@/components/elevation-profile"
 import { DayTrip } from "@/components/day-trip"
 import { GoldenHour } from "@/components/golden-hour"
 import { ApiError, fetchRoutes, geocode } from "@/lib/api"
+import { routeLocally, type LocalRoutes } from "@/lib/router"
 import type { DemoTrip, RoutePreference, RouteResult, Stop } from "@/lib/types"
 
 function formatDistance(meters: number) {
@@ -73,6 +74,7 @@ export function RouteForm({ onRouteChange, onFocusStop }: Props) {
   const [usedAlternative, setUsedAlternative] = useState(false)
   const [matched, setMatched] = useState<{ from: string; to: string } | null>(null)
   const [showAllTrips, setShowAllTrips] = useState(false)
+  const [typedRoutes, setTypedRoutes] = useState<LocalRoutes>(null)
 
   // 300 KB of coordinates, so it is fetched once rather than bundled.
   useEffect(() => {
@@ -94,9 +96,26 @@ export function RouteForm({ onRouteChange, onFocusStop }: Props) {
       .catch(() => setTrips([]))
   }, [])
 
-  // Derived, not stored: on a precomputed trip the answer is already in hand,
-  // so keeping a copy in state only creates something that can go stale.
-  const result = activeTrip ? activeTrip[preference] : searchResult
+  // Derived, not stored. Both a listed trip and a typed one hold both ways at
+  // once, so the shown result follows the toggle without anything being copied
+  // into state and left to go stale.
+  const result = activeTrip
+    ? activeTrip[preference]
+    : typedRoutes
+      ? typedRoutes[preference]
+      : searchResult
+
+  // A typed route has both ways in hand as well, so the toggle is instant there
+  // too rather than sending the question off again.
+  useEffect(() => {
+    if (activeTrip || !typedRoutes) return
+    onRouteChange(
+      typedRoutes[preference],
+      typedRoutes[preference === "scenic" ? "fastest" : "scenic"],
+      preference,
+      [],
+    )
+  }, [typedRoutes, preference, activeTrip, onRouteChange])
 
   // Switching on a precomputed trip is instant — nothing to fetch, just tell
   // the map which of the two routes is now in front.
@@ -118,6 +137,7 @@ export function RouteForm({ onRouteChange, onFocusStop }: Props) {
 
   function pickTrip(trip: DemoTrip) {
     setActiveTrip(trip)
+    setTypedRoutes(null)
     setFrom(`${trip.from}, AZ`)
     setTo(`${trip.to}, AZ`)
     setError(null)
@@ -132,13 +152,24 @@ export function RouteForm({ onRouteChange, onFocusStop }: Props) {
 
     try {
       const [origin, destination] = await Promise.all([geocode(from), geocode(to)])
-      const routes = await fetchRoutes(origin.coords, destination.coords)
+      setMatched({ from: origin.label, to: destination.label })
 
+      // Routed here in the browser, over the scored graph, so a typed place
+      // gets the same scenic routing the listed trips do. Falls back to the
+      // public service when the places sit outside the graph's corridor.
+      const local = await routeLocally(origin.coords, destination.coords)
+      if (local) {
+        setTypedRoutes(local)
+        setUsedAlternative(false)
+        setSearchResult(null)
+        return
+      }
+
+      setTypedRoutes(null)
+      const routes = await fetchRoutes(origin.coords, destination.coords)
       const wantsAlternative = preference === "scenic" && routes.length > 1
       const chosen = wantsAlternative ? routes[1] : routes[0]
-
       setUsedAlternative(wantsAlternative)
-      setMatched({ from: origin.label, to: destination.label })
       setSearchResult(chosen)
       onRouteChange(chosen, null, preference, [])
     } catch (caught) {
@@ -351,12 +382,20 @@ export function RouteForm({ onRouteChange, onFocusStop }: Props) {
                     {matched.from} → {matched.to}
                   </p>
                 )}
-                {scenicActive && (
+                {typedRoutes ? (
                   <p className="text-[0.7rem] leading-relaxed text-muted">
-                    {usedAlternative
-                      ? "Only an alternate route for typed places — pick a route above for real scenic routing."
-                      : "No alternate route here — showing the fastest one."}
+                    {scenicActive
+                      ? "Scenic, routed here in your browser over the scored map."
+                      : "Fastest way. Switch to scenic for the drive worth taking."}
                   </p>
+                ) : (
+                  scenicActive && (
+                    <p className="text-[0.7rem] leading-relaxed text-muted">
+                      {usedAlternative
+                        ? "Outside the mapped corridor, so this is only an alternate route from the public service."
+                        : "Outside the mapped corridor — showing the fastest route from the public service."}
+                    </p>
+                  )
                 )}
               </>
             )}

@@ -67,17 +67,22 @@ site as a file, so the demo needs no server and can't go down.
 than the front page and an instruction to click the third button:
 <https://trailblaze-az.vercel.app/?trip=phoenix-sedona&way=scenic>
 
-**Type your own two places and you get the fastest route only.** That's the
-public routing service, which only knows about speed. The app says which one
-you're getting rather than blurring it.
+**Type your own two places and you get real scenic routing too**, as long as
+both sit inside the mapped corridor. The routing runs in your browser: the
+pipeline exports the road network with its scenic scores baked in, and the page
+finds the path itself in about seventy milliseconds. Outside the corridor it
+falls back to the public service, which knows only about speed, and says so.
 
 ## What's left
 
-One thing: a routing server, so scenic routing works for anywhere you type
-rather than the nine trips listed. Everything it needs is already built — the
-scored map of the state, the routing rules, and a test proving the scoring
-actually changes which road you're sent down. What's missing is standing the
-server up.
+Widening the corridor. Routing works for anywhere inside the Phoenix to Sedona
+box the pipeline cuts, which is where the scored graph comes from; ask for
+Tucson and it falls back to the public service. Cutting a bigger region is the
+same pipeline run with a bigger box, traded against the file the browser has to
+download.
+
+There is no routing server and there is not going to be one. The machine this
+was built on cannot host it, and it turned out not to need one.
 
 ## Running it
 
@@ -144,6 +149,7 @@ writes a stamped artifact, so a route can be traced back to the data behind it.
 | 9. Precompute the demo | `python pipeline/make-demo-routes.py` | `public/demo-routes.json` |
 | 10. Find stops along them | `python pipeline/fetch-pois.py` | adds `stops` to the same file |
 | 11. Height profiles | `python pipeline/fetch-elevation.py` | adds `profile` to each route |
+| 12. Routable graph | `python pipeline/build-graph.py` | `public/graph.bin.gz` |
 
 Stage 7 cuts the Phoenix→Sedona corridor out of the tagged extract, 301 MB down
 to 44 MB, which is what makes stages 8 and 9 runnable on a laptop.
